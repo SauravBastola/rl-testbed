@@ -273,6 +273,59 @@ MODULES: List[Dict[str, Any]] = [
         ],
     },
     {
+        "id": "world-models",
+        "title": "World models",
+        "summary": "Learn how the world works, then plan or practise inside the model.",
+        "steps": [
+            {
+                "id": "wm-planning",
+                "title": "Plan with a learned model",
+                "summary": "PETS against SAC on Pendulum, with the same small budget of episodes.",
+                "concepts": ["world-model", "mpc", "cem", "sample-efficiency"],
+                "experiment": {"runs": [
+                    R("pets", "pendulum", 12, seeds=(0, 1), name="PETS"),
+                    R("sac", "pendulum", 12, seeds=(0, 1), name="SAC"),
+                ]},
+                "watch": "PETS swings the pendulum up within about five episodes; SAC is still "
+                         "learning at twelve. Compare wall-clock time too: PETS plans at every step.",
+                "question": "PETS never trains a policy. How does it choose actions?",
+                "answer": "At every step it imagines hundreds of action sequences in its learned model, "
+                          "scores each by imagined return, refines them with the cross-entropy method, "
+                          "executes the first action of the best one, and then plans again.",
+            },
+            {
+                "id": "wm-compounding",
+                "title": "Where imagination breaks",
+                "summary": "PETS on CartPole; open the Imagination tab of the run.",
+                "concepts": ["compounding-error", "epistemic"],
+                "experiment": {"runs": [R("pets", "cartpole", 10, seeds=(0,))]},
+                "watch": "Compare model_error_1 with model_error_15 in the metric charts, then look at "
+                         "how the imagined trajectory leaves the real one after a few steps.",
+                "question": "The model is nearly exact one step ahead. Why does it drift over fifteen?",
+                "answer": "Each prediction becomes the input to the next, so small errors are fed back "
+                          "and grow, often into states the model never saw in training. Short horizons "
+                          "and replanning every step keep this under control.",
+            },
+            {
+                "id": "wm-imagination",
+                "title": "Learning in imagination",
+                "summary": "Dreamer-lite trains a policy inside the model; compare it with planning.",
+                "concepts": ["imagination", "actor-critic", "mpc"],
+                "experiment": {"runs": [
+                    R("dreamer_lite", "pendulum", 20, seeds=(0,), name="Dreamer-lite"),
+                    R("pets", "pendulum", 20, seeds=(0,), name="PETS"),
+                ]},
+                "watch": "Both learn within a handful of episodes. Dreamer-lite acts with one network "
+                         "pass per step; PETS plans every step. Its imagined_return metric shows what "
+                         "the policy expects; compare it with real returns.",
+                "question": "Why would imagined returns be higher than real ones?",
+                "answer": "The actor is optimised against the model, so it seeks out actions where the "
+                          "model is too optimistic. Errors in the world model become errors in the "
+                          "policy, which is why imagined rollouts are kept short.",
+            },
+        ],
+    },
+    {
         "id": "language-models",
         "title": "RL for language models",
         "summary": "The methods behind reasoning models, on a tiny transformer: verifiers, groups, KL and preferences.",

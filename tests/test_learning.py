@@ -76,7 +76,7 @@ def test_every_step_experiment_validates():
         assert result["valid"], (step["id"], result["errors"])
         assert result["summary"]["n_runs"] <= 12, step["id"]  # keep steps laptop-sized
         checked += 1
-    assert checked >= 16
+    assert checked >= 19
 
 
 def test_step_ids_unique():
@@ -134,7 +134,7 @@ def test_curriculum_endpoint_and_legacy_path(tmp_path, monkeypatch):
 
     c = TestClient(create_app())
     data = c.get("/api/curriculum").json()
-    assert len(data["modules"]) == 8 and data["done"] == 0 and data["total"] >= 18
+    assert len(data["modules"]) == 9 and data["done"] == 0 and data["total"] >= 21
     step = data["modules"][0]["steps"][0]
     assert step["status"]["state"] == "todo" and step["experiment_text"].startswith("# Learning path")
     legacy = c.get("/api/learning-path").json()
