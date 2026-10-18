@@ -33,9 +33,9 @@ in the same commit that finishes an item.
 
 - [x] **RL for language models.** GRPO, REINFORCE, DPO and SFT on a tiny
   transformer with verifiable rewards; reward hacking and the KL anchor.
-- [ ] **World models.** Planning with a learned dynamics ensemble (PETS-style)
-  and learning in imagination (Dreamer-style) on classic control, with a view of
-  imagined vs real rollouts and a learning-path module. See docs/RESEARCH.md.
+- [x] **World models.** PETS (planning with a learned ensemble) and Dreamer-lite
+  (learning in imagination), an imagined-vs-real view, and a learning-path module.
+- [ ] **TD-MPC-style agent**: latent planning with a learned terminal value.
 - [ ] **DAPO preset** for GRPO: clip-higher and skipping zero-signal groups.
 - [ ] **CrossQ and a SimBa-style network option** for SAC, TD3 and PPO.
 

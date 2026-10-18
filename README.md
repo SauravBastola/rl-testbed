@@ -20,8 +20,8 @@ The catalogue is organised into **labs**, one per shape of learning problem:
 Plus a global **Diagnostics** page: six probe environments with known answers
 (five discrete, one continuous), shown as a pass/fail matrix across every algorithm.
 
-**Catalogue:** 49 environments (43 for training, 6 diagnostic probes) and 34
-algorithms (26 trainable, 8 planned, each with the reason it is not trainable
+**Catalogue:** 49 environments (43 for training, 6 diagnostic probes) and 36
+algorithms (28 trainable, 8 planned, each with the reason it is not trainable
 yet). Environments whose optional dependency is missing are listed as
 unavailable with an install command, rather than hidden.
 
@@ -98,10 +98,13 @@ rltestbed export <run, sweep or seed-group id>[,...] -o my-experiment.yaml
 - **Language models:** GRPO, REINFORCE, DPO and supervised fine-tuning on a tiny
   pretrained transformer (no downloads, seconds per run). Visualize shows sampled
   answers shaded by token probability; a hackable task demonstrates reward hacking.
-- **Learning path:** 8 modules, 18 experiments, from a random baseline to reading
+- **World models:** PETS plans with a learned ensemble at every step; Dreamer-lite
+  trains an actor-critic inside the model. The run page's Imagination tab overlays
+  the model's open-loop prediction on what really happened.
+- **Learning path:** 9 modules, 21 experiments, from a random baseline to reading
   results across seeds. Each step teaches named concepts, runs in one click, asks
   a question, and marks itself done from your runs.
-- **Glossary:** 75 terms by topic, with explanations, formulas, related terms and
+- **Glossary:** 81 terms by topic, with explanations, formulas, related terms and
   links to where each idea appears.
 - **Night / Day** in the sidebar; **Settings** chooses each mode's theme
   (Night: Midnight, Graphite, Abyss, Obsidian. Day: Daylight, Paper, High contrast).
@@ -179,7 +182,7 @@ and `docs.math`.
 ```bash
 pip install -r requirements-dev.txt  # adds pytest
 make help                            # list common tasks; `make check` runs what CI runs
-python -m pytest tests -q            # 128 tests
+python -m pytest tests -q            # 134 tests
 cd web
 npm run dev                          # :5173, proxies /api and /ws to :8000
 npm run lint                         # ESLint, including a no-hex-colour rule

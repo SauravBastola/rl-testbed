@@ -38,15 +38,20 @@ planning at decision time [4]. TD-MPC2 instead plans by local trajectory
 optimisation in the latent space of a decoder-free model, and outperformed SAC
 and DreamerV3 across 104 continuous-control tasks [5].
 
-**In the testbed.** Only tabular Dyna-Q so far.
+**In the testbed (v3.6).**
+- *PETS*: an ensemble of dynamics networks (batched into one set of stacked
+  weights) plus cross-entropy-method planning at every step. Measured on
+  Pendulum: returns go from about -900 to about -130 within five episodes,
+  where SAC needs roughly ten times as many.
+- *Dreamer-lite*: an actor-critic trained only on λ-returns of imagined rollouts,
+  backpropagating through the model for continuous actions. Measured on
+  Pendulum: about -1470 to about -120 within four episodes.
+- Both report model error 1, 5 and 15 steps ahead, and the run page overlays the
+  model's open-loop prediction on the real trajectory.
 
-**Next (in progress).** Two small model-based agents on classic control, where
-a model fits in seconds:
-- *Planning with a learned model*: an ensemble of small dynamics networks plus
-  cross-entropy-method planning (the PETS recipe).
-- *Learning in imagination*: an actor-critic trained on rollouts of the learned
-  model (Dreamer-style, without pixels).
-- A view comparing imagined and real trajectories, so model error is visible.
+**Next.** A TD-MPC-style agent: plan in a learned latent space with a learned
+value function at the end of the horizon, so plans can be short without being
+myopic.
 
 ## 3. Sample-efficient model-free control
 

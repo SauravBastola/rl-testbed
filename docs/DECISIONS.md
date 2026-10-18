@@ -277,6 +277,22 @@ is what RL with verifiable rewards mostly does in practice.
 progress files `Trainer` does, so nothing else in the app needed to know about
 language models. `core/runner.create_trainer` is the only branch.
 
+## v3.6: world models
+
+**Ordinary agents, two small trainer hooks.** PETS and Dreamer-lite run in the
+existing step-by-step trainer. Two general additions made that possible:
+agents are told when a step ended only by a time limit (a world model must not
+learn that Pendulum stops existing after 200 steps), and agents may publish JSON
+artifacts to their run folder each episode.
+
+**One batched ensemble.** Planning evaluates the model thousands of times per
+step, so the members' weights are stacked and evaluated with one batched matrix
+multiply, about 2.5x faster than looping over member networks.
+
+**Honest diagnostics.** Model error is measured on each new episode before the
+model trains on it, by feeding the real start state and real actions and never
+the real states again: the same open-loop setting the planner relies on.
+
 ## Component conventions
 
 The conventions asked for one component per file. Primitives are instead grouped by
