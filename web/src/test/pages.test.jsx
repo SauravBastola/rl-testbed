@@ -39,6 +39,9 @@ const ROUTES = [
   ['/diagnostics', /What each probe checks/],
   ['/learn', /Meet the random agent/],
   ['/glossary', /Bootstrapping/],
+  ['/lab/foundations/sweeps', /Q-learning step size and discount/],
+  ['/lab/foundations/sweeps/new', /Search space/],
+  ['/sweeps/s52el9r0', /What each parameter does/],
   ['/no-such-page', /Page not found/],
 ]
 
@@ -47,6 +50,14 @@ describe('routes', () => {
     renderAt(path)
     expect(await screen.findAllByText(text, {}, { timeout: 4000 })).not.toHaveLength(0)
     expect(screen.queryByText(/Could not load/)).not.toBeInTheDocument()
+  })
+
+  it('shows the best sweep configuration with a pre-filled training link', async () => {
+    renderAt('/sweeps/s52el9r0')
+    const link = await screen.findByRole('link', { name: /Train this configuration/ })
+    const href = decodeURIComponent(link.getAttribute('href'))
+    expect(href).toContain('agent=q_learning')
+    expect(href).toContain('"alpha":0.2')
   })
 
   it('redirects v2 URLs into the current lab', async () => {

@@ -88,6 +88,13 @@ export const api = {
   aggregate: (runIds, metric = 'reward', groupBy = 'config') =>
     request(`/api/compare/aggregate${q({ run_ids: runIds, metric, group_by: groupBy })}`),
   rollout: (body) => request('/api/rollout', post(body)),
+  // sweeps
+  sweeps: (lab) => request(`/api/sweeps${q({ lab })}`),
+  sweep: (id, rankBy) => request(`/api/sweeps/${id}${q({ rank_by: rankBy })}`),
+  previewSweep: (body) => request('/api/sweeps/preview', post(body)),
+  createSweep: (body) => request('/api/sweeps', post(body)),
+  stopSweep: (id) => request(`/api/sweeps/${id}/stop`, post()),
+  deleteSweep: (id) => request(`/api/sweeps/${id}`, { method: 'DELETE' }),
   // models
   models: () => request('/api/models'),
   updateModel: (id, body) => request(`/api/models/${id}`, patch(body)),

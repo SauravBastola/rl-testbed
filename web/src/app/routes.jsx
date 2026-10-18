@@ -9,6 +9,9 @@ const Composer = lazy(() => import('../pages/Composer.jsx'))
 const Runs = lazy(() => import('../pages/Runs.jsx'))
 const RunDetail = lazy(() => import('../pages/RunDetail.jsx'))
 const Compare = lazy(() => import('../pages/Compare.jsx'))
+const Sweeps = lazy(() => import('../pages/Sweeps.jsx'))
+const SweepComposer = lazy(() => import('../pages/SweepComposer.jsx'))
+const SweepDetail = lazy(() => import('../pages/SweepDetail.jsx'))
 const Models = lazy(() => import('../pages/Models.jsx'))
 const Environments = lazy(() => import('../pages/Environments.jsx'))
 const EnvironmentDetail = lazy(() => import('../pages/EnvironmentDetail.jsx'))
@@ -42,9 +45,12 @@ export function AppRoutes() {
         <Route path="lab/:labId/runs" element={<Runs />} />
         <Route path="lab/:labId/envs" element={<Environments />} />
         <Route path="lab/:labId/algorithms" element={<Algorithms />} />
+        <Route path="lab/:labId/sweeps" element={<Sweeps />} />
+        <Route path="lab/:labId/sweeps/new" element={<SweepComposer />} />
         <Route path="lab/:labId/*" element={<LegacyLabRedirect />} />
 
         <Route path="runs/:runId" element={<RunDetail />} />
+        <Route path="sweeps/:sweepId" element={<SweepDetail />} />
         <Route path="envs/:envName" element={<EnvironmentDetail />} />
         <Route path="algorithms/:agentName" element={<AlgorithmDetail />} />
         <Route path="compare" element={<Compare />} />

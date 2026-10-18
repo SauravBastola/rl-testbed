@@ -85,6 +85,24 @@ export function useRuns(params = {}) {
   })
 }
 
+const sweepActive = (sw) => !!sw && (sw.counts ? sw.counts.running + sw.counts.queued > 0 : sw.running + sw.queued > 0)
+
+export const useSweeps = (lab) =>
+  useQuery({
+    queryKey: ['sweeps', lab],
+    queryFn: () => api.sweeps(lab),
+    refetchInterval: (q) => ((q.state.data || []).some(sweepActive) ? 3000 : false),
+  })
+
+export const useSweep = (id, rankBy) =>
+  useQuery({
+    queryKey: ['sweep', id, rankBy],
+    queryFn: () => api.sweep(id, rankBy),
+    enabled: !!id,
+    placeholderData: keepPreviousData,
+    refetchInterval: (q) => (sweepActive(q.state.data) ? 3000 : false),
+  })
+
 export const useModels = () => useQuery({ queryKey: keys.models, queryFn: api.models })
 export const useDiagnostics = () =>
   useQuery({
@@ -157,6 +175,8 @@ export function useRunMutation(fn, opts = {}) {
       qc.invalidateQueries({ queryKey: ['runs'] })
       qc.invalidateQueries({ queryKey: ['run'] })
       qc.invalidateQueries({ queryKey: keys.diagnostics })
+      qc.invalidateQueries({ queryKey: ['sweeps'] })
+      qc.invalidateQueries({ queryKey: ['sweep'] })
       opts.onSuccess?.(data, vars, ctx)
     },
   })

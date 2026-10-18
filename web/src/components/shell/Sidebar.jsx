@@ -16,6 +16,7 @@ import {
   Map,
   Plus,
   Search,
+  SlidersHorizontal,
   Stethoscope,
 } from 'lucide-react'
 import { cn } from '../../lib/utils.js'
@@ -247,6 +248,9 @@ export function Sidebar({ onOpenPalette, onOpenSystem, onNavigate }) {
           }
         >
           Runs
+        </NavItem>
+        <NavItem to={`${base}/sweeps`} icon={SlidersHorizontal} onNavigate={onNavigate}>
+          Sweeps
         </NavItem>
         <NavItem to={`${base}/envs`} icon={Map} onNavigate={onNavigate}>
           Environments

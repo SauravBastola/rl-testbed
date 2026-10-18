@@ -7,6 +7,7 @@ import { LabGlyph } from '../art/LabArt.jsx'
 const PAGE_NAMES = {
   new: 'New run',
   runs: 'Runs',
+  sweeps: 'Sweeps',
   envs: 'Environments',
   algorithms: 'Algorithms',
   compare: 'Compare',
@@ -25,12 +26,16 @@ export function useCrumbs() {
   const labCrumb = { label: lab?.label || 'Lab', to: `/lab/${labId}`, glyph: lab?.icon }
   if (parts[0] === 'lab') {
     const crumbs = [labCrumb]
-    if (parts[2]) crumbs.push({ label: PAGE_NAMES[parts[2]] || parts[2] })
+    if (parts[2] === 'sweeps' && parts[3] === 'new') {
+      crumbs.push({ label: 'Sweeps', to: `/lab/${labId}/sweeps` }, { label: 'New sweep' })
+    } else if (parts[2]) crumbs.push({ label: PAGE_NAMES[parts[2]] || parts[2] })
     else crumbs.push({ label: 'Overview' })
     return crumbs
   }
   if (parts[0] === 'runs' && parts[1])
     return [labCrumb, { label: 'Runs', to: `/lab/${labId}/runs` }, { label: parts[1], mono: true }]
+  if (parts[0] === 'sweeps' && parts[1])
+    return [labCrumb, { label: 'Sweeps', to: `/lab/${labId}/sweeps` }, { label: parts[1], mono: true }]
   if (parts[0] === 'envs' && parts[1])
     return [labCrumb, { label: 'Environments', to: `/lab/${labId}/envs` }, { label: parts[1], mono: true }]
   if (parts[0] === 'algorithms' && parts[1])

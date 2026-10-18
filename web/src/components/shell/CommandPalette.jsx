@@ -18,6 +18,7 @@ import {
   Play,
   Plus,
   Search,
+  SlidersHorizontal,
   Stethoscope,
 } from 'lucide-react'
 import { useApp, useLab } from '../../app/AppContext.jsx'
@@ -67,6 +68,8 @@ export function CommandPalette({ open, onClose }) {
       ['Overview', base, LayoutDashboard],
       ['New run', `${base}/new`, Plus],
       ['Runs', `${base}/runs`, ListTree],
+      ['Sweeps', `${base}/sweeps`, SlidersHorizontal],
+      ['New sweep', `${base}/sweeps/new`, SlidersHorizontal],
       ['Environments', `${base}/envs`, Map],
       ['Algorithms', `${base}/algorithms`, FlaskConical],
       ['Compare runs', '/compare', GitCompareArrows],
