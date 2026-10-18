@@ -73,7 +73,8 @@ LABS: List[Dict[str, Any]] = [
         "match": {"categories": ["gym", "continuous"], "exclude_tags": ["locomotion"]},
         "algorithms": [
             "dqn", "dqn_double", "dueling_dqn", "dqn_per", "c51", "reinforce",
-            "reinforce_baseline", "a2c", "ppo", "ppo_continuous", "sac", "td3", "ddpg", "random",
+            "reinforce_baseline", "a2c", "ppo", "ppo_continuous", "sac", "td3", "ddpg", "pets",
+            "dreamer_lite", "random",
         ],
         "metrics": ["reward", "mean_reward", "steps", "metric_loss", "metric_entropy",
                     "metric_value_loss", "metric_epsilon"],
@@ -109,7 +110,7 @@ LABS: List[Dict[str, Any]] = [
         "accent": "amber",
         "icon": "joint",
         "match": {"categories": ["mujoco"], "tags": ["locomotion"]},
-        "algorithms": ["sac", "td3", "ddpg", "ppo_continuous", "random"],
+        "algorithms": ["sac", "td3", "ddpg", "ppo_continuous", "pets", "dreamer_lite", "random"],
         "metrics": ["reward", "mean_reward", "metric_critic_loss", "metric_actor_loss",
                     "metric_alpha", "metric_entropy", "metric_expl_noise"],
         "visual": "torque",

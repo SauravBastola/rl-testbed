@@ -6,6 +6,27 @@ this table, so nothing else needs to reference it.
 """
 
 THEORY = {
+    'pets': (
+        '**Origin:** Chua, Calandra, McAllister & Levine, NeurIPS 2018.\n\n'
+        '**Model:** an ensemble $\\{f_{\\theta_e}\\}_{e=1}^{E}$ trained on bootstrapped data to predict '
+        '$\\Delta s = s_{t+1} - s_t$, the reward and termination from $(s_t, a_t)$. Disagreement between '
+        'members approximates epistemic uncertainty.\n\n'
+        '**Planning (MPC):** at every step solve '
+        '$\\max_{a_{t:t+H}} \\mathbb{E}\\left[\\sum_{k=0}^{H-1} \\gamma^k \\hat r_{t+k}\\right]$ '
+        'approximately with the cross-entropy method, execute $a_t$ only, and replan.\n\n'
+        '**CEM:** sample $N$ sequences from $\\mathcal{N}(\\mu, \\sigma^2)$, keep the top $K$ by imagined '
+        'return, set $\\mu, \\sigma$ to their mean and spread, repeat.\n'
+    ),
+    'dreamer_lite': (
+        '**Origin:** Hafner et al., *Dream to Control* (2020), *DreamerV3* (2023); here without the latent '
+        'image model.\n\n'
+        '**λ-returns in imagination:** $G_t^\\lambda = \\hat r_t + \\gamma \\hat c_t\\left[(1-\\lambda) V(\\hat s_{t+1}) '
+        '+ \\lambda G_{t+1}^\\lambda\\right]$, with $\\hat c_t$ the predicted probability of continuing.\n\n'
+        '**Actor:** continuous actions maximise $\\mathbb{E}[G^\\lambda]$ by backpropagating through the '
+        'differentiable model (dynamics backpropagation); discrete actions use '
+        '$\\nabla \\log \\pi(a\\mid s)\\,(G^\\lambda - V(s))$.\n\n'
+        '**Critic:** $\\min_\\psi \\mathbb{E}\\left[(V_\\psi(\\hat s_t) - G_t^\\lambda)^2\\right]$ on imagined states.\n'
+    ),
     'ppo_continuous': (
         '**Origin:** Schulman et al. 2017, with a Gaussian policy as in their MuJoCo experiments.\n\n'
         '**Policy:** $\\pi_\\theta(a|s)=\\mathcal{N}(\\mu_\\theta(s),\\,\\mathrm{diag}(\\sigma^2))$ '

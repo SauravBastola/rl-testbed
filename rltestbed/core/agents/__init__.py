@@ -20,6 +20,7 @@ from .tabular_extra import (
 )
 from .dqn_extra import C51Agent, PrioritizedDQNAgent
 from .ppo_continuous import GaussianPPOAgent
+from .world_models import DreamerLiteAgent, PETSAgent
 from rltestbed.core.lm.agents import LM_AGENTS
 
 AGENT_REGISTRY: Dict[str, type] = {
@@ -43,6 +44,9 @@ AGENT_REGISTRY: Dict[str, type] = {
     "a2c": A2CAgent,
     "ppo": PPOAgent,
     "ppo_continuous": GaussianPPOAgent,
+    # world models
+    "pets": PETSAgent,
+    "dreamer_lite": DreamerLiteAgent,
     # language-model RL (trained by rltestbed.core.lm.trainer.SequenceTrainer)
     **LM_AGENTS,
     # continuous control (MuJoCo, Box action spaces)

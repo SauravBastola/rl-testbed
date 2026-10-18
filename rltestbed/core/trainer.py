@@ -286,6 +286,9 @@ class Trainer:
             while not done and steps < self.max_steps:
                 action = self.agent.get_action(obs)
                 next_obs, reward, terminated, truncated, _ = self.env.step(action)
+                # World models must not learn that a time limit ends the world:
+                # agents that care can read whether this step was only a truncation.
+                self.agent.last_step_truncated = bool(truncated and not terminated)
                 self.agent.update(
                     obs, action, reward, next_obs, terminated or truncated
                 )
@@ -297,6 +300,20 @@ class Trainer:
 
             self.agent.end_of_episode()
             self.episode_rewards.append(ep_reward)
+            # Agents may publish JSON artifacts for the run page (e.g. a world
+            # model's imagined vs real trajectory).
+            publish = getattr(self.agent, "artifacts", None)
+            if callable(publish):
+                try:
+                    for fname, data in (publish() or {}).items():
+                        if isinstance(data, dict) and "real" in data and "labels" not in data:
+                            from rltestbed.core.envs.observations import labels_for
+
+                            data = {**data, "labels": labels_for(
+                                self.env_name, self.env, self.env.obs_dim)}
+                        (self.run_dir / fname).write_text(json.dumps(data))
+                except Exception as e:  # never let an artifact stop training
+                    self.logger.warning(f"Could not write agent artifact: {e}")
 
             metrics = self.agent.get_metrics()
 
