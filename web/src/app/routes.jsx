@@ -3,6 +3,8 @@ import { Navigate, Route, Routes, useParams } from 'react-router-dom'
 import { AppShell } from '../components/shell/AppShell.jsx'
 import { useApp } from './AppContext.jsx'
 import LabOverview from '../pages/LabOverview.jsx'
+// Imported directly: several detail pages render it, so it lives in the main chunk.
+import NotFound from '../pages/NotFound.jsx'
 
 // Everything except the landing page is split into its own chunk.
 const Composer = lazy(() => import('../pages/Composer.jsx'))
@@ -21,7 +23,6 @@ const Diagnostics = lazy(() => import('../pages/Diagnostics.jsx'))
 const Visualize = lazy(() => import('../pages/Visualize.jsx'))
 const Learn = lazy(() => import('../pages/Learn.jsx'))
 const Glossary = lazy(() => import('../pages/Glossary.jsx'))
-const NotFound = lazy(() => import('../pages/NotFound.jsx'))
 
 /** Old v2 URLs redirect into the current lab so bookmarks keep working. */
 function ToLab({ page = '' }) {
