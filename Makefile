@@ -1,7 +1,9 @@
 # Common tasks. Run `make help` to list them.
 # Windows without make: the README lists the equivalent commands.
 
-PY ?= python
+# Use the project virtualenv when it exists, so a forgotten `activate` cannot
+# run the tests with the wrong interpreter.
+PY ?= $(if $(wildcard .venv/bin/python),.venv/bin/python,python)
 WEB = web
 
 .PHONY: help setup build serve dev test test-backend test-web lint format check clean

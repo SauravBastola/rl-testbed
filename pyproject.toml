@@ -1,7 +1,9 @@
 [project]
 name = "rl-testbed"
-version = "2.0.0"
-description = "A comprehensive RL testbed: train, track, compare and manage agents via CLI or web app"
+version = "3.7.0"
+description = "A local laboratory for learning and doing reinforcement learning"
+license = { text = "MIT" }
+authors = [{ name = "Saurav Bastola" }]
 # Pinned to the 3.11 series: several env deps (gymnasium 0.29.1, torch 2.4)
 # are verified against it. Use a range, not "==3.11", so patch releases
 # like 3.11.10 still satisfy it.

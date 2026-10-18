@@ -1,6 +1,6 @@
 # CLAUDE.md — Working conventions
 
-Operational rules for this repository. Read `01-BRIEF.md` for the mission; this file is the how.
+Operational rules for this repository. Read `docs/CONTEXT.md` first for the architecture, invariants and lessons learned; this file is the how.
 
 ## Repository layout
 
