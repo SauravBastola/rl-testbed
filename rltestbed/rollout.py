@@ -112,6 +112,48 @@ def _encode(arr, photographic: bool) -> Optional[str]:
     return base64.b64encode(buf.getvalue()).decode("ascii")
 
 
+# One colour per MinAtar channel (up to 10). Tuned to stay distinct on a dark
+# background and for common colour-vision deficiencies.
+MINATAR_PALETTE = [
+    (102, 178, 255), (255, 196, 92), (128, 128, 140), (240, 110, 120), (120, 220, 160),
+    (200, 150, 255), (255, 140, 60), (90, 210, 220), (230, 230, 120), (180, 180, 190),
+]
+MINATAR_CELL = 32
+
+
+def _minatar_frame(game):
+    """MinAtar's 10x10xC boolean state as a scaled, colour-coded PNG.
+
+    Each channel has its own colour; where channels overlap, the later one is
+    drawn on top. Returns (base64 png, legend) where legend maps channel names
+    to colours.
+    """
+    import base64
+    import io
+
+    from PIL import Image
+
+    state = np.asarray(game.state(), dtype=bool)
+    h, w, c = state.shape
+    names = {i: n for n, i in getattr(game.env, "channels", {}).items()}
+    img = np.zeros((h, w, 3), dtype=np.uint8)
+    img[...] = (22, 26, 34)
+    for ch in range(c):
+        img[state[..., ch]] = MINATAR_PALETTE[ch % len(MINATAR_PALETTE)]
+    # nearest-neighbour upscale with a 2px gap between cells, so objects read as cells
+    cell = MINATAR_CELL
+    big = np.full((h * cell, w * cell, 3), (12, 14, 19), dtype=np.uint8)
+    for r in range(h):
+        for col in range(w):
+            big[r * cell + 1:(r + 1) * cell - 1, col * cell + 1:(col + 1) * cell - 1] = img[r, col]
+    buf = io.BytesIO()
+    Image.fromarray(big).save(buf, format="PNG", compress_level=3)
+    legend = [{"name": names.get(ch, f"channel {ch}"),
+               "color": "rgb({}, {}, {})".format(*MINATAR_PALETTE[ch % len(MINATAR_PALETTE)])}
+              for ch in range(c)]
+    return base64.b64encode(buf.getvalue()).decode("ascii"), legend
+
+
 def _before_render(target) -> None:
     """Work around upstream renderer quirks before calling ``render()``.
 
@@ -182,6 +224,8 @@ def run(body: Dict[str, Any]) -> Dict[str, Any]:
         env.close()
         raise RolloutError(422, f"cannot prepare the agent: {exc}") from exc
 
+    legend: list = []
+
     def picture() -> Dict[str, Any]:
         """The current state as a frame (base64 PNG) and/or a schematic view."""
         nonlocal source, render_error
@@ -192,7 +236,7 @@ def run(body: Dict[str, Any]) -> Dict[str, Any]:
                 _before_render(target)
                 out["frame"] = _encode(target.render(), photographic)
             elif source == "frames":
-                out["frame"] = encode_array(env._env.state(), max_size=(MAX_SIDE, MAX_SIDE))
+                out["frame"], legend[:] = _minatar_frame(env._env)
             elif source == "schematic":
                 out["view"] = getattr(env, "_env", env).view()
         except Exception as exc:
@@ -240,6 +284,7 @@ def run(body: Dict[str, Any]) -> Dict[str, Any]:
         "env": env_name, "agent": agent_name, "model_id": model_id, "seed": seed,
         "render": {"source": source, "error": render_error or None,
                    "mime": "image/jpeg" if photographic and source == "pixels" else "image/png",
+                   "legend": legend or None,
                    "explanation": explain(source, spec, labels, render_error)},
         "obs_labels": labels, "obs_type": spec.obs_type,
         "action_type": spec.action_type, "action_labels": actions, "action_bounds": bounds,

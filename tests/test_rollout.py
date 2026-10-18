@@ -118,3 +118,18 @@ def test_failed_viewer_cleanup_is_silent():
 
     viewer = mr.OffScreenViewer.__new__(mr.OffScreenViewer)
     viewer.free()  # used to raise AttributeError: no attribute 'opengl_context'
+
+
+def test_minatar_frames_are_scaled_and_colour_coded():
+    pytest.importorskip("minatar")
+    import base64
+    import io
+
+    from PIL import Image
+
+    r = _run("minatar_breakout", steps=3, episodes=3)
+    assert len(r["trajectories"]) == 3  # several episodes in one request
+    names = [x["name"] for x in r["render"]["legend"]]
+    assert names == ["paddle", "ball", "trail", "brick"]
+    frame = r["trajectories"][0]["steps"][0]["frame"]
+    assert Image.open(io.BytesIO(base64.b64decode(frame))).size == (320, 320)  # was 10x10

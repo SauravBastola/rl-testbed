@@ -6,6 +6,7 @@ import { useLab } from '../app/AppContext.jsx'
 import { api } from '../lib/api.js'
 import { useCatalogue, useModels } from '../lib/queries.js'
 import { fmtNum } from '../lib/format.js'
+import { cn } from '../lib/utils.js'
 import { Button, IconButton } from '../components/ui/Button.jsx'
 import { Card, CardHeader } from '../components/ui/Card.jsx'
 import { Field, Input, Select } from '../components/ui/Field.jsx'
@@ -33,6 +34,15 @@ const SOURCE_BADGE = {
 /** The observation the agent received, labelled when the backend knows the labels. */
 function Observation({ obs, labels, obsType }) {
   if (!Array.isArray(obs)) return null
+  if (obsType === 'image') {
+    const on = obs.filter((v) => v).length
+    return (
+      <p className="text-body-s text-muted">
+        A grid of {obs.length} on/off cells (the picture on the left is exactly this input, one colour per channel).{' '}
+        <span className="num text-text">{on}</span> cells are on at this step.
+      </p>
+    )
+  }
   if (obsType === 'onehot' && obs.length > 1) {
     const idx = obs.findIndex((v) => v === 1)
     return (
@@ -120,6 +130,50 @@ function ActionPanel({ step, data }) {
   )
 }
 
+/** Several episodes: the spread of returns, and one chip per episode to inspect it. */
+function EpisodePicker({ trajs, value, onChange }) {
+  const returns = trajs.map((t) => t.total_reward)
+  const mean = returns.reduce((a, b) => a + b, 0) / returns.length
+  const std = Math.sqrt(returns.reduce((a, r) => a + (r - mean) ** 2, 0) / Math.max(1, returns.length - 1))
+  return (
+    <Card pad="sm">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <p className="text-body-s text-muted">
+          Return over <span className="num text-text">{trajs.length}</span> episodes:{' '}
+          <span className="num text-text">
+            {fmtNum(mean)} ± {fmtNum(std)}
+          </span>
+          <span className="text-subtle">
+            {' '}
+            (min <span className="num">{fmtNum(Math.min(...returns))}</span>, max{' '}
+            <span className="num">{fmtNum(Math.max(...returns))}</span>)
+          </span>
+        </p>
+        <span className="text-caption text-subtle">Choose an episode to step through it</span>
+      </div>
+      <div className="mt-3 flex flex-wrap gap-1.5" role="radiogroup" aria-label="Episode">
+        {trajs.map((t, k) => (
+          <button
+            key={k}
+            type="button"
+            role="radio"
+            aria-checked={k === value}
+            onClick={() => onChange(k)}
+            className={cn(
+              'h-8 min-w-[4.5rem] rounded border px-2 text-left text-caption transition-colors duration-fast',
+              k === value
+                ? 'border-accent bg-accent/12 text-text'
+                : 'border-border bg-surface-2 text-muted hover:border-border-strong',
+            )}
+          >
+            <span className="text-subtle">#{k + 1}</span> <span className="num">{fmtNum(t.total_reward)}</span>
+          </button>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
 function Player({ data, traj }) {
   const [i, setI] = useState(0)
   const [playing, setPlaying] = useState(true)
@@ -173,7 +227,11 @@ function Player({ data, traj }) {
             <img
               src={`data:${data.render.mime || 'image/png'};base64,${step.frame}`}
               alt={`State at step ${step.step}`}
-              className="max-h-[440px] w-auto max-w-full [image-rendering:pixelated]"
+              className={cn(
+                'w-auto max-w-full [image-rendering:pixelated]',
+                // MinAtar frames are small grids: scale them up, crisp
+                source === 'frames' ? 'h-[400px]' : 'max-h-[440px]',
+              )}
             />
           ) : step.view ? (
             <div className="w-full max-w-2xl p-4">
@@ -186,6 +244,16 @@ function Player({ data, traj }) {
             </div>
           )}
         </div>
+        {data.render.legend && (
+          <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1" aria-label="Channel colours">
+            {data.render.legend.map((l) => (
+              <li key={l.name} className="flex items-center gap-1.5 text-caption text-muted">
+                <span className="h-3 w-3 rounded-sm" style={{ background: l.color }} aria-hidden />
+                {l.name}
+              </li>
+            ))}
+          </ul>
+        )}
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <IconButton icon={SkipBack} label="Restart" variant="secondary" onClick={() => setI(0)} />
           <IconButton
@@ -266,6 +334,7 @@ export default function Visualize() {
   const [modelId, setModelId] = useState(params.get('model') || '')
   const [seed, setSeed] = useState(0)
   const [maxSteps, setMaxSteps] = useState(300)
+  const [nEpisodes, setNEpisodes] = useState(1)
   const [episode, setEpisode] = useState(0)
 
   const usable = envs.filter((e) => e.available !== false)
@@ -285,7 +354,7 @@ export default function Visualize() {
       agent: source === 'model' ? undefined : 'random',
       seed: Number(seed),
       max_steps: Number(maxSteps),
-      episodes: 1,
+      episodes: Math.min(20, Math.max(1, Number(nEpisodes) || 1)),
     })
   }
 
@@ -305,11 +374,11 @@ export default function Visualize() {
     <div className="space-y-6">
       <PageHeader
         title="Visualize"
-        description="Play one episode and step through it, with a random policy or a kept model."
+        description="Play episodes and step through them, with a random policy or a kept model."
       />
       <Card>
         {/* Every control keeps a fixed footprint; notes go below the row, never inside it. */}
-        <div className="grid items-end gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_auto_minmax(0,1.6fr)_7rem_7rem_auto]">
+        <div className="grid items-end gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_auto_minmax(0,1.5fr)_5.5rem_6.5rem_5.5rem_auto]">
           <Field label="Environment">
             {(id) =>
               isLoading ? (
@@ -387,6 +456,19 @@ export default function Visualize() {
               />
             )}
           </Field>
+          <Field label="Episodes">
+            {(id) => (
+              <Input
+                id={id}
+                type="number"
+                min={1}
+                max={20}
+                className="num"
+                value={nEpisodes}
+                onChange={(e) => setNEpisodes(e.target.value)}
+              />
+            )}
+          </Field>
           <Button
             variant="primary"
             icon={Play}
@@ -431,13 +513,7 @@ export default function Visualize() {
             {data.render.explanation}
             {data.agent === 'random' && ` The policy is random: a baseline for what no learning looks like.`}
           </Notice>
-          {trajs.length > 1 && (
-            <Segmented
-              value={episode}
-              onChange={setEpisode}
-              options={trajs.map((_, k) => ({ value: k, label: `Episode ${k + 1}` }))}
-            />
-          )}
+          {trajs.length > 1 && <EpisodePicker trajs={trajs} value={episode} onChange={setEpisode} />}
           <Player data={data} traj={trajs[episode]} />
         </>
       )}
