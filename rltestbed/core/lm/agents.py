@@ -190,8 +190,18 @@ class GRPOAgent(LMAgent):
             ParamSpec("group_size", "Group size G", 8, "int",
                       "Completions sampled per prompt.", min=2, max=64),
             KL_PARAM,
-            ParamSpec("clip_eps", "Clip ε", 0.2, "float",
-                      "PPO-style ratio clipping per token.", min=0.01, max=1.0),
+            ParamSpec("clip_eps", "Clip ε (lower)", 0.2, "float",
+                      "Ratios below 1 − ε are clipped (PPO-style, per token).", min=0.01, max=1.0),
+            ParamSpec("clip_eps_high", "Clip ε (upper)", 0.2, "float",
+                      "Ratios above 1 + ε are clipped. DAPO's clip-higher raises it (0.28) so "
+                      "unlikely-but-good tokens can grow faster, countering entropy collapse.",
+                      min=0.01, max=1.0),
+            ParamSpec("dynamic_sampling", "Dynamic sampling", False, "bool",
+                      "Replace groups whose answers all scored the same (no signal) with fresh "
+                      "prompts before updating, as in DAPO."),
+            ParamSpec("max_resample_rounds", "Resampling rounds", 3, "int",
+                      "How many extra rounds dynamic sampling may draw.", min=1, max=10,
+                      advanced=True),
             ParamSpec("epochs", "Epochs per batch", 2, "int",
                       "Gradient passes over each batch of samples.", min=1, max=10),
             ParamSpec("normalize_std", "Divide advantages by group std", True, "bool",
@@ -208,6 +218,11 @@ class GRPOAgent(LMAgent):
             {"name": "dr-grpo", "label": "Dr. GRPO",
              "description": "No std normalisation, token-level loss.",
              "overrides": {"normalize_std": False, "token_level_loss": True}, "episodes": 150},
+            {"name": "dapo", "label": "DAPO",
+             "description": "Clip-higher (0.28), dynamic sampling, token-level loss, no KL "
+                            "penalty (Yu et al., 2025).",
+             "overrides": {"clip_eps_high": 0.28, "dynamic_sampling": True,
+                           "token_level_loss": True, "kl_coef": 0.0}, "episodes": 150},
             {"name": "no-kl", "label": "No KL (ablation)",
              "description": "β = 0: nothing anchors the policy to the base model.",
              "overrides": {"kl_coef": 0.0}, "episodes": 150},
@@ -237,39 +252,63 @@ class GRPOAgent(LMAgent):
                           {"key": "kl", "meaning": "Divergence from the base model."},
                           {"key": "entropy", "meaning": "Per-token policy entropy."},
                           {"key": "zero_signal_groups", "meaning": "Share of groups whose answers all scored the same."},
-                          {"key": "clip_fraction", "meaning": "Share of tokens whose ratio was clipped."}],
+                          {"key": "clip_fraction", "meaning": "Share of tokens whose ratio was clipped."},
+                          {"key": "resample_rounds", "meaning": "Extra sampling rounds dynamic sampling needed."}],
         recommended_envs=["lm_addition", "lm_sort", "lm_addition_hackable"],
         related=["ppo", "lm_reinforce", "dpo"],
-        paper="Shao et al., 2024 (DeepSeekMath); Guo et al., 2025 (DeepSeek-R1).",
+        paper="Shao et al., 2024 (DeepSeekMath); Guo et al., 2025 (DeepSeek-R1); Yu et al., "
+        "2025 (DAPO).",
     )
 
     def train_step(self, task, rng):
         g = self.params["group_size"]
-        seqs, rewards, extras, _ = self.rollouts(task, rng, self.params["prompts_per_step"], g)
+        want = self.params["prompts_per_step"]
+        seqs, rewards, extras, _ = self.rollouts(task, rng, want, g)
+        zero_signal = (rewards.view(-1, g).std(1) < 1e-8).float().mean().item()
+        rounds = 0
+        if self.params["dynamic_sampling"]:
+            # keep only groups that disagree; top up with fresh prompts
+            def informative(r):
+                return r.view(-1, g).std(1) >= 1e-8
+
+            keep = informative(rewards)
+            seq_g, rew_g = [seqs.view(-1, g, seqs.size(1))[keep]], [rewards.view(-1, g)[keep]]
+            have = int(keep.sum())
+            while have < want and rounds < self.params["max_resample_rounds"]:
+                rounds += 1
+                more_s, more_r, _, _ = self.rollouts(task, rng, want, g)
+                k = informative(more_r)
+                seq_g.append(more_s.view(-1, g, more_s.size(1))[k])
+                rew_g.append(more_r.view(-1, g)[k])
+                have += int(k.sum())
+            if have == 0:  # nothing to learn from this step
+                return {"reward": rewards.mean().item(), "zero_signal_groups": zero_signal,
+                        "resample_rounds": float(rounds), **extras}
+            seqs = torch.cat(seq_g)[:want].reshape(-1, seqs.size(1))
+            rewards = torch.cat(rew_g)[:want].reshape(-1)
         mask = completion_mask(seqs, task.prompt_len)
         grouped = rewards.view(-1, g)
         adv = grouped - grouped.mean(1, keepdim=True)
         if self.params["normalize_std"]:
             adv = adv / (grouped.std(1, keepdim=True) + 1e-4)
         adv = adv.view(-1, 1)
-        zero_signal = (grouped.std(1) < 1e-8).float().mean().item()
         with torch.no_grad():
             old_logp, _ = completion_logprobs(self.policy, seqs, task.prompt_len)
-        eps = self.params["clip_eps"]
+        lo, hi = self.params["clip_eps"], self.params["clip_eps_high"]
         for _ in range(self.params["epochs"]):
             logp, ent = completion_logprobs(self.policy, seqs, task.prompt_len)
             ratio = torch.exp(logp - old_logp)
-            surrogate = torch.min(ratio * adv, torch.clamp(ratio, 1 - eps, 1 + eps) * adv)
+            surrogate = torch.min(ratio * adv, torch.clamp(ratio, 1 - lo, 1 + hi) * adv)
             if self.params["token_level_loss"]:
                 pg = -masked_mean(surrogate, mask)
             else:
                 pg = -masked_mean(surrogate, mask, dim=1).mean()
             kl = self.kl_to_ref(seqs, task.prompt_len, logp, mask)
             self.step(pg + self.params["kl_coef"] * kl)
-        clipped = masked_mean(((ratio - 1).abs() > eps).float(), mask).item()
+        clipped = masked_mean(((ratio < 1 - lo) | (ratio > 1 + hi)).float(), mask).item()
         return {"reward": rewards.mean().item(), "kl": kl.item(),
                 "entropy": masked_mean(ent, mask).item(), "zero_signal_groups": zero_signal,
-                "clip_fraction": clipped, **extras}
+                "clip_fraction": clipped, "resample_rounds": float(rounds), **extras}
 
 
 # ---------------------------------------------------------------------- DPO
