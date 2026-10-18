@@ -17,6 +17,8 @@ import {
   Map,
   Moon,
   Play,
+  Settings2,
+  Sun,
   Plus,
   Search,
   SlidersHorizontal,
@@ -46,7 +48,7 @@ function score(haystack, tokens) {
 
 export function CommandPalette({ open, onClose }) {
   const navigate = useNavigate()
-  const { setTheme } = useApp()
+  const { setTheme, setMode } = useApp()
   const { labId, labs } = useLab()
   const { envs, agents } = useCatalogue()
   const runs = useRuns({ limit: 60 })
@@ -90,11 +92,14 @@ export function CommandPalette({ open, onClose }) {
       run: () => navigate(`/lab/${l.id}`),
     }))
     const actions = [
+      { group: 'Actions', label: 'Switch to Night', icon: Moon, key: 'mode-night', run: () => setMode('night') },
+      { group: 'Actions', label: 'Switch to Day', icon: Sun, key: 'mode-day', run: () => setMode('day') },
+      { group: 'Actions', label: 'Theme settings', icon: Settings2, key: 'settings', run: () => navigate('/settings') },
       ...THEMES.map((t) => ({
         group: 'Actions',
         label: `Use ${t.label} theme`,
-        hint: t.description,
-        icon: Moon,
+        hint: `${t.mode === 'night' ? 'Night' : 'Day'}: ${t.description}`,
+        icon: t.mode === 'night' ? Moon : Sun,
         key: `t${t.id}`,
         run: () => setTheme(t.id),
       })),
@@ -128,7 +133,7 @@ export function CommandPalette({ open, onClose }) {
       run: () => navigate(`/runs/${r.id}`),
     }))
     return [...pages, ...labItems, ...actions, ...runItems, ...envItems, ...agentItems]
-  }, [labId, labs, envs, agents, runs.data, navigate, setTheme])
+  }, [labId, labs, envs, agents, runs.data, navigate, setTheme, setMode])
 
   const tokens = query.toLowerCase().split(/\s+/).filter(Boolean)
   const results = useMemo(() => {

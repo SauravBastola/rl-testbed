@@ -23,7 +23,7 @@
 @layer base {
   /* ---------------------------------------------------------------- midnight */
   :root,
-  :root[data-theme='midnight'] {
+  [data-theme='midnight'] {
     color-scheme: dark;
     --bg: 11 13 18;
     --bg-soft: 14 17 23;
@@ -66,7 +66,7 @@
   }
 
   /* ---------------------------------------------------------------- daylight */
-  :root[data-theme='daylight'] {
+  [data-theme='daylight'] {
     color-scheme: light;
     --bg: 244 246 249;
     --bg-soft: 236 239 244;
@@ -111,7 +111,7 @@
   /* ---------------------------------------------------------------- graphite */
   /* Low-chroma, high-contrast neutral for long sessions: no hue in the canvas,
      muted lab accents, brighter text. */
-  :root[data-theme='graphite'] {
+  [data-theme='graphite'] {
     color-scheme: dark;
     --bg: 20 20 21;
     --bg-soft: 24 24 26;
@@ -148,26 +148,200 @@
     --grid-alpha: 0.018;
   }
 
+  /* ------------------------------------------------------------------ abyss */
+  /* Night: deep navy with luminous accents. */
+  [data-theme='abyss'] {
+    color-scheme: dark;
+    --bg: 7 12 26;
+    --bg-soft: 10 16 33;
+    --surface: 14 22 42;
+    --surface-2: 19 29 54;
+    --surface-3: 27 39 68;
+    --border: 33 47 78;
+    --border-strong: 53 71 110;
+    --text: 231 237 250;
+    --text-muted: 162 176 204;
+    --text-subtle: 128 145 178;
+    --text-inverse: 7 12 26;
+
+    --hue-violet: 172 152 255;
+    --hue-cyan: 70 212 238;
+    --hue-amber: 247 192 96;
+    --hue-rose: 250 134 164;
+    --hue-lime: 166 222 96;
+    --hue-sky: 122 178 255;
+
+    --success: 86 222 172;
+    --warning: 247 192 96;
+    --danger: 250 124 124;
+    --info: 122 178 255;
+
+    --chart-2: 122 178 255;
+    --chart-3: 247 192 96;
+    --chart-4: 250 134 164;
+    --chart-5: 86 222 172;
+    --chart-6: 196 168 255;
+    --chart-grid: 200 220 255;
+    --chart-grid-alpha: 0.07;
+
+    --shadow-raised: 0 1px 2px rgb(0 0 0 / 0.35), 0 8px 24px -12px rgb(0 0 0 / 0.6);
+    --shadow-overlay: 0 2px 6px rgb(0 0 0 / 0.4), 0 24px 64px -16px rgb(0 0 0 / 0.75);
+    --ambient-strength: 1;
+    --grid-line: 170 200 255;
+    --grid-alpha: 0.03;
+  }
+
+  /* --------------------------------------------------------------- obsidian */
+  /* Night: true black, bright text and accents. Highest contrast; OLED-friendly. */
+  [data-theme='obsidian'] {
+    color-scheme: dark;
+    --bg: 0 0 0;
+    --bg-soft: 6 6 7;
+    --surface: 12 12 14;
+    --surface-2: 20 20 23;
+    --surface-3: 30 30 34;
+    --border: 48 48 54;
+    --border-strong: 84 84 92;
+    --text: 250 250 252;
+    --text-muted: 196 196 204;
+    --text-subtle: 156 156 166;
+    --text-inverse: 0 0 0;
+
+    --hue-violet: 192 170 255;
+    --hue-cyan: 80 222 242;
+    --hue-amber: 255 204 96;
+    --hue-rose: 255 142 170;
+    --hue-lime: 184 236 96;
+    --hue-sky: 136 190 255;
+
+    --success: 96 230 178;
+    --warning: 255 204 96;
+    --danger: 255 132 132;
+    --info: 136 190 255;
+
+    --chart-2: 136 190 255;
+    --chart-3: 255 204 96;
+    --chart-4: 255 142 170;
+    --chart-5: 96 230 178;
+    --chart-6: 214 190 255;
+    --chart-grid: 255 255 255;
+    --chart-grid-alpha: 0.08;
+
+    --shadow-raised: 0 0 0 1px rgb(255 255 255 / 0.04);
+    --shadow-overlay: 0 0 0 1px rgb(255 255 255 / 0.08), 0 24px 64px -16px rgb(0 0 0 / 0.9);
+    --ambient-strength: 0.5;
+    --grid-line: 255 255 255;
+    --grid-alpha: 0.025;
+  }
+
+  /* ------------------------------------------------------------------ paper */
+  /* Day: warm off-white, softer than Daylight. */
+  [data-theme='paper'] {
+    color-scheme: light;
+    --bg: 246 243 236;
+    --bg-soft: 239 235 226;
+    --surface: 253 251 246;
+    --surface-2: 246 242 234;
+    --surface-3: 236 230 219;
+    --border: 223 215 201;
+    --border-strong: 190 180 163;
+    --text: 36 31 26;
+    --text-muted: 84 76 66;
+    --text-subtle: 106 97 86;
+    --text-inverse: 253 251 246;
+
+    --hue-violet: 104 58 184;
+    --hue-cyan: 8 106 120;
+    --hue-amber: 146 82 8;
+    --hue-rose: 172 38 68;
+    --hue-lime: 66 106 18;
+    --hue-sky: 38 92 176;
+
+    --success: 28 112 66;
+    --warning: 146 82 8;
+    --danger: 176 42 38;
+    --info: 38 92 176;
+
+    --chart-2: 38 92 176;
+    --chart-3: 146 82 8;
+    --chart-4: 172 38 68;
+    --chart-5: 28 112 66;
+    --chart-6: 120 76 172;
+    --chart-grid: 60 45 20;
+    --chart-grid-alpha: 0.08;
+
+    --shadow-raised: 0 1px 2px rgb(60 45 20 / 0.06), 0 8px 24px -12px rgb(60 45 20 / 0.16);
+    --shadow-overlay: 0 2px 6px rgb(60 45 20 / 0.08), 0 24px 64px -16px rgb(60 45 20 / 0.26);
+    --ambient-strength: 0.35;
+    --grid-line: 60 45 20;
+    --grid-alpha: 0.035;
+  }
+
+  /* --------------------------------------------------------------- contrast */
+  /* Day: maximum legibility. White, black text, strong borders, no ambient wash. */
+  [data-theme='contrast'] {
+    color-scheme: light;
+    --bg: 255 255 255;
+    --bg-soft: 246 246 246;
+    --surface: 255 255 255;
+    --surface-2: 245 245 245;
+    --surface-3: 230 230 230;
+    --border: 150 150 150;
+    --border-strong: 90 90 90;
+    --text: 0 0 0;
+    --text-muted: 34 34 34;
+    --text-subtle: 64 64 64;
+    --text-inverse: 255 255 255;
+
+    --hue-violet: 82 28 176;
+    --hue-cyan: 0 86 110;
+    --hue-amber: 120 66 0;
+    --hue-rose: 156 18 56;
+    --hue-lime: 46 90 0;
+    --hue-sky: 18 72 166;
+
+    --success: 0 100 56;
+    --warning: 120 66 0;
+    --danger: 166 18 18;
+    --info: 18 72 166;
+
+    --chart-2: 18 72 166;
+    --chart-3: 120 66 0;
+    --chart-4: 156 18 56;
+    --chart-5: 0 100 56;
+    --chart-6: 100 50 160;
+    --chart-grid: 0 0 0;
+    --chart-grid-alpha: 0.12;
+
+    --shadow-raised: 0 0 0 1px rgb(0 0 0 / 0.08);
+    --shadow-overlay: 0 0 0 1px rgb(0 0 0 / 0.2), 0 24px 64px -16px rgb(0 0 0 / 0.3);
+    --ambient-strength: 0;
+    --grid-line: 0 0 0;
+    --grid-alpha: 0;
+  }
+
   /* ------------------------------------------------------------- lab accents */
   :root {
     --accent: var(--hue-violet);
   }
-  :root[data-lab='foundations'] {
+  [data-lab='foundations'] {
     --accent: var(--hue-violet);
   }
-  :root[data-lab='classic'] {
+  [data-lab='classic'] {
     --accent: var(--hue-cyan);
   }
-  :root[data-lab='continuous'] {
+  [data-lab='continuous'] {
     --accent: var(--hue-amber);
   }
-  :root[data-lab='perception'] {
+  [data-lab='perception'] {
     --accent: var(--hue-rose);
   }
-  :root[data-lab='multiagent'] {
+  [data-lab='multiagent'] {
     --accent: var(--hue-lime);
   }
-  :root {
+  :root,
+  [data-theme],
+  [data-lab] {
     --accent-contrast: var(--text-inverse);
     --chart-1: var(--accent);
   }

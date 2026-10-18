@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { applyTheme, readStoredTheme } from '../lib/theme.js'
+import { activeTheme, applyPrefs, getTheme, readPrefs } from '../lib/theme.js'
 import { useLabs } from '../lib/queries.js'
 
 const LAB_KEY = 'rltestbed.lab'
@@ -18,12 +18,13 @@ function readLab() {
 
 /** Theme + current lab. The lab drives the accent via [data-lab] on <html>. */
 export function AppProvider({ children }) {
-  const [theme, setThemeState] = useState(readStoredTheme)
+  const [prefs, setPrefs] = useState(readPrefs)
   const [labId, setLabIdState] = useState(readLab)
+  const theme = activeTheme(prefs)
 
   useEffect(() => {
-    applyTheme(theme)
-  }, [theme])
+    applyPrefs(prefs)
+  }, [prefs])
   useEffect(() => {
     document.documentElement.dataset.lab = labId
     try {
@@ -33,9 +34,21 @@ export function AppProvider({ children }) {
     }
   }, [labId])
 
-  const setTheme = useCallback((id) => setThemeState(id), [])
+  const setMode = useCallback((mode) => setPrefs((p) => ({ ...p, mode })), [])
+  /** Choose a theme: it becomes its mode's theme, and that mode becomes active. */
+  const setTheme = useCallback(
+    (id) =>
+      setPrefs((p) => {
+        const { mode } = getTheme(id)
+        return { ...p, mode, [mode]: id }
+      }),
+    [],
+  )
   const setLabId = useCallback((id) => id && setLabIdState(id), [])
-  const value = useMemo(() => ({ theme, setTheme, labId, setLabId }), [theme, setTheme, labId, setLabId])
+  const value = useMemo(
+    () => ({ theme, prefs, setMode, setTheme, labId, setLabId }),
+    [theme, prefs, setMode, setTheme, labId, setLabId],
+  )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
 

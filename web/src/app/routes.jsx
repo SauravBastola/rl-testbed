@@ -24,6 +24,7 @@ const Diagnostics = lazy(() => import('../pages/Diagnostics.jsx'))
 const Visualize = lazy(() => import('../pages/Visualize.jsx'))
 const Learn = lazy(() => import('../pages/Learn.jsx'))
 const Glossary = lazy(() => import('../pages/Glossary.jsx'))
+const Settings = lazy(() => import('../pages/Settings.jsx'))
 
 /** Old v2 URLs redirect into the current lab so bookmarks keep working. */
 function ToLab({ page = '' }) {
@@ -62,6 +63,7 @@ export function AppRoutes() {
         <Route path="diagnostics" element={<Diagnostics />} />
         <Route path="learn" element={<Learn />} />
         <Route path="glossary" element={<Glossary />} />
+        <Route path="settings" element={<Settings />} />
 
         {/* v2 routes */}
         <Route path="train" element={<ToLab page="/new" />} />

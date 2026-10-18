@@ -10,7 +10,8 @@
       ;(function () {
         try {
           var t = localStorage.getItem('rltestbed.theme')
-          if (t === 'midnight' || t === 'daylight' || t === 'graphite') document.documentElement.dataset.theme = t
+          var known = ['midnight', 'graphite', 'abyss', 'obsidian', 'daylight', 'paper', 'contrast']
+          if (known.indexOf(t) >= 0) document.documentElement.dataset.theme = t
           var l = localStorage.getItem('rltestbed.lab')
           if (l) document.documentElement.dataset.lab = l
         } catch (_) {}

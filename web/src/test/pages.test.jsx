@@ -43,6 +43,7 @@ const ROUTES = [
   ['/lab/foundations/sweeps/new', /Search space/],
   ['/sweeps/s52el9r0', /What each parameter does/],
   ['/experiments', /Validated by the same rules/],
+  ['/settings', /Night theme/],
   ['/no-such-page', /Page not found/],
 ]
 

@@ -34,17 +34,17 @@ if (!failed) console.log('  ✓ none')
 
 // ---------------------------------------------------------- 2. contrast check
 const css = readFileSync('src/styles.css', 'utf8')
-const block = (selector) => {
-  const i = css.indexOf(selector)
-  const body = css.slice(css.indexOf('{', i) + 1, css.indexOf('\n  }', i))
-  return Object.fromEntries([...body.matchAll(/--([\w-]+):\s*([^;]+);/g)].map((m) => [m[1], m[2].trim()]))
+const blocks = {}
+for (const m of css.matchAll(/\[data-theme='([\w-]+)'\]\s*\{/g)) {
+  const start = m.index + m[0].length
+  const body = css.slice(start, css.indexOf('\n  }', start))
+  blocks[m[1]] = Object.fromEntries([...body.matchAll(/--([\w-]+):\s*([^;]+);/g)].map((x) => [x[1], x[2].trim()]))
 }
-const base = block(":root[data-theme='midnight']")
-const themes = {
-  midnight: base,
-  daylight: { ...base, ...block(":root[data-theme='daylight']") },
-  graphite: { ...base, ...block(":root[data-theme='graphite']") },
-}
+// Midnight is the base on :root; other themes override it (some define every token).
+const base = blocks.midnight
+const themes = Object.fromEntries(Object.entries(blocks).map(([name, vars]) => [name, { ...base, ...vars }]))
+const expected = [...readFileSync('src/lib/theme.js', 'utf8').matchAll(/id: '([\w-]+)', mode:/g)].map((m) => m[1])
+for (const id of expected) if (!themes[id]) fail(`theme '${id}' is listed in theme.js but has no [data-theme='${id}'] block`)
 const resolve = (vars, value, depth = 0) => {
   const m = /^var\(--([\w-]+)\)$/.exec(value)
   if (m && depth < 5) return resolve(vars, vars[m[1]], depth + 1)

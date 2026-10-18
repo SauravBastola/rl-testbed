@@ -17,6 +17,7 @@ const PAGE_NAMES = {
   diagnostics: 'Diagnostics',
   learn: 'Learning path',
   glossary: 'Glossary',
+  settings: 'Settings',
 }
 
 /** Breadcrumbs derived from the URL: lab segment first, then page, then entity. */
