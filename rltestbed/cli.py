@@ -62,6 +62,93 @@ def serve(
     uvicorn.run(app_instance, host=host, port=port, log_level="info")
 
 
+# ------------------------------------------------------------ experiments --
+@app.command("run")
+def run_experiment(
+    file: Path = typer.Argument(..., exists=True, dir_okay=False, help="Experiment YAML file"),
+    dry_run: bool = typer.Option(False, "--dry-run", help="Validate and summarise; create nothing"),
+    server: str = typer.Option("http://127.0.0.1:8000", help="Running RL Testbed server"),
+):
+    """Validate an experiment file, then launch it on the running server."""
+    from rltestbed import experiments
+
+    text = file.read_text()
+    result = experiments.parse(text)
+    if not result["valid"]:
+        typer.secho(f"{file} is not valid:", fg=typer.colors.RED, err=True)
+        for e in result["errors"]:
+            typer.echo(f"  {e['loc']}: {e['message']}", err=True)
+        raise typer.Exit(1)
+    summary = result["summary"]
+    typer.echo(f"{summary['name']}: {summary['n_runs']} runs from {summary['n_entries']} entries")
+    for e in summary["entries"]:
+        what = f"sweep, {e['n_configs']} configs" if e["kind"] == "sweep" else "run"
+        typer.echo(f"  {e['kind']}s[{e['index']}]  {e['agent']} on {e['env']}  "
+                   f"{e['episodes']} episodes  ({what}, {e['n_runs']} runs)")
+    if dry_run:
+        typer.echo("Dry run: nothing was created.")
+        return
+
+    # Launch through the server so its queue starts the runs and the web app
+    # shows them live. Validation above already ran locally.
+    import httpx
+
+    try:
+        resp = httpx.post(f"{server.rstrip('/')}/api/experiments/launch",
+                          json={"text": text}, timeout=60)
+    except httpx.HTTPError:
+        typer.secho(f"Cannot reach {server}. Start it with `rltestbed serve`, then rerun.",
+                    fg=typer.colors.RED, err=True)
+        raise typer.Exit(2)
+    if resp.status_code != 200:
+        typer.secho(f"Server refused the file ({resp.status_code}): {resp.text}",
+                    fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+    out = resp.json()
+    typer.secho(f"Launched {len(out['run_ids'])} runs.", fg=typer.colors.GREEN)
+    for r in out["runs"]:
+        typer.echo(f"  runs:   {', '.join(r['run_ids'])}")
+    for sw in out["sweeps"]:
+        typer.echo(f"  sweep:  {server.rstrip('/')}/sweeps/{sw['sweep_id']}")
+    typer.echo(f"Follow them at {server.rstrip('/')}/compare?runs={','.join(out['run_ids'][:40])}")
+
+
+@app.command("export")
+def export_experiment(
+    ids: str = typer.Argument(..., help="Run ids, a sweep id or a seed-group id (comma-separated)"),
+    output: Optional[Path] = typer.Option(None, "-o", "--output", help="Write here instead of stdout"),
+    name: str = typer.Option("", help="Experiment name (defaults to the first item's name)"),
+):
+    """Write an experiment file that recreates existing runs, groups or a sweep."""
+    from rltestbed import experiments
+    from rltestbed.registry import get_run, get_sweep, list_runs
+
+    runs, sweeps = [], []
+    for item in [x.strip() for x in ids.split(",") if x.strip()]:
+        sweep = get_sweep(item)
+        if sweep:
+            sweeps.append(sweep)
+            continue
+        run = get_run(item)
+        if run:
+            runs.append(run)
+            continue
+        group = list_runs(group_id=item)
+        if group:
+            runs.extend(group)
+            continue
+        typer.secho(f"No run, sweep or group with id '{item}'.", fg=typer.colors.RED, err=True)
+        raise typer.Exit(1)
+    title = name or (sweeps[0]["name"] if sweeps else runs[0]["name"].split(" · ")[0])
+    text = experiments.dump(title, runs=runs, sweeps=sweeps,
+                            filename=output.name if output else "experiment.yaml")
+    if output:
+        output.write_text(text)
+        typer.echo(f"Wrote {output}")
+    else:
+        typer.echo(text, nl=False)
+
+
 # ------------------------------------------------------------------ train --
 @app.command()
 def train(

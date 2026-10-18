@@ -86,3 +86,23 @@ class RunUpdateRequest(BaseModel):
         if tags is None:
             return tags
         return RunCreateRequest.clean_tags(tags)
+
+
+class SweepCreateRequest(BaseModel):
+    """A hyperparameter sweep (see rltestbed/sweeps.py for the space format)."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    agent: str = Field(min_length=1, max_length=80)
+    env: str = Field(min_length=1, max_length=120)
+    name: Optional[str] = Field(default=None, max_length=160)
+    description: str = Field(default="", max_length=4000)
+    strategy: Literal["grid", "random"] = "grid"
+    space: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    n_trials: int = Field(default=10, ge=1, le=200)
+    sample_seed: int = Field(default=0, ge=0)
+    base_params: dict[str, Any] = Field(default_factory=dict)
+    seeds: list[int] = Field(default_factory=lambda: [0], min_length=1, max_length=20)
+    episodes: int = Field(default=200, ge=1, le=1_000_000)
+    eval_freq: int = Field(default=25, ge=1)
+    eval_episodes: int = Field(default=10, ge=1, le=10_000)

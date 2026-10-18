@@ -29,3 +29,6 @@ pandas==2.2.2
 cloudpickle==3.0.0
 tqdm==4.66.4
 requests>=2.32
+
+# Experiment files (also installed by uvicorn[standard])
+PyYAML>=6.0

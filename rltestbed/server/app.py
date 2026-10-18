@@ -41,11 +41,15 @@ from rltestbed.registry import (
 from rltestbed.benchmarks import benchmark_dict
 from rltestbed.capabilities import check_compat, compat_matrix, validate_params
 from rltestbed.content import GLOSSARY, LEARNING_PATH
+from pydantic import ValidationError
+
+from rltestbed import launch
 from rltestbed.schemas import (
     EvaluationRequest,
     ModelUpdateRequest,
     RunCreateRequest,
     RunUpdateRequest,
+    SweepCreateRequest,
 )
 from rltestbed import analysis, labs as labs_mod
 from rltestbed.benchmarks import diagnostic_params, verdict as benchmark_verdict
@@ -325,7 +329,8 @@ def create_app(web_dist: Optional[Path] = None,
 
     @app.get("/api/compare/aggregate")
     def api_compare_aggregate(run_ids: str, metric: str = "reward",
-                              group_by: str = "config", max_points: int = 400):
+                              group_by: str = "config", max_points: int = 400,
+                              format: str = "json"):
         """Overlay runs, grouping seeds of the same configuration into mean ± std."""
         runs = [r for r in (get_run(x.strip()) for x in run_ids.split(",") if x.strip()) if r]
         if not runs:
@@ -336,30 +341,41 @@ def create_app(web_dist: Optional[Path] = None,
         thresholds = {index.get(r["env"], {}).get("reward_threshold") for r in runs}
         threshold = thresholds.pop() if len(thresholds) == 1 else None
         metric_threshold = threshold if metric in ("reward", "mean_reward", "eval") else None
+        groups = analysis.aggregate(_items(runs), key=metric, group_by=group_by,
+                                    threshold=threshold, max_points=max_points)
+        if format == "csv":
+            import csv
+            import io
+
+            buf = io.StringIO()
+            writer = csv.writer(buf)
+            writer.writerow(["group", "n_runs", "episode", "mean", "std", "min", "max", "n"])
+            for g in groups:
+                for p in g["points"]:
+                    writer.writerow([g["label"], g["n_runs"], p["x"], p["mean"],
+                                     "" if p["std"] is None else p["std"], p["min"], p["max"], p["n"]])
+            return _attachment(buf.getvalue(), f"compare-{metric}.csv", "text/csv")
         return {
             "metric": metric,
             "group_by": group_by,
             "threshold": metric_threshold,
-            "groups": analysis.aggregate(_items(runs), key=metric, group_by=group_by,
-                                         threshold=threshold, max_points=max_points),
+            "groups": groups,
             "diff": analysis.config_diff(runs),
         }
 
     # ----------------------------------------------------------- sweeps --
-    def _sweep_request(body: Dict[str, Any]):
-        agent_name, env_name = body.get("agent"), body.get("env")
-        agent = next((a for a in list_agents() if a["name"] == agent_name), None)
-        env = _env_index().get(env_name)
-        if not agent or not env:
-            raise HTTPException(404, "unknown algorithm or environment")
-        compat = check_compat(agent, env)
-        if not compat["compatible"]:
-            raise HTTPException(422, {"message": "incompatible pairing", "reasons": compat["blockers"]})
+    def _sweep_body(body: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            configs, seeds = sweeps_mod.plan(agent, body)
-        except sweeps_mod.SweepError as exc:
-            raise HTTPException(422, {"message": "invalid sweep", "reasons": exc.errors})
-        return agent, env, configs, seeds, compat
+            return SweepCreateRequest(**body).model_dump()
+        except ValidationError as exc:
+            reasons = [f"{'.'.join(str(x) for x in e['loc'])}: {e['msg']}" for e in exc.errors()]
+            raise HTTPException(422, {"message": "invalid sweep", "reasons": reasons}) from exc
+
+    def _sweep_request(body: Dict[str, Any]):
+        try:
+            return launch.check_sweep(_sweep_body(body))
+        except launch.LaunchError as exc:
+            raise HTTPException(exc.status, exc.detail()) from exc
 
     @app.post("/api/sweeps/preview")
     def api_sweep_preview(body: Dict[str, Any]):
@@ -375,32 +391,10 @@ def create_app(web_dist: Optional[Path] = None,
 
     @app.post("/api/sweeps")
     def api_create_sweep(body: Dict[str, Any]):
-        agent, env, configs, seeds, compat = _sweep_request(body)
-        episodes = int(body.get("episodes") or 200)
-        if not 1 <= episodes <= 1_000_000:
-            raise HTTPException(422, "episodes must be between 1 and 1,000,000")
-        name = (body.get("name") or f"{agent['name']}-{env['name']} sweep").strip()[:160]
-        strategy = body.get("strategy", "grid")
-        sid = _registry.create_sweep(name, agent["name"], env["name"], episodes, strategy, body)
-        base = body.get("base_params") or {}
-        config = {
-            "episodes": episodes, "eval_freq": int(body.get("eval_freq") or 25),
-            "eval_episodes": int(body.get("eval_episodes") or 10), "checkpoint_freq": 1000,
-            "save_best": True, "save_final": False, "compatibility": compat,
-        }
-        run_ids = []
-        for i, swept in enumerate(configs):
-            params = validate_params(agent, {**base, **swept})
-            gid = new_group_id()
-            for seed in seeds:
-                rid = create_run(f"{name} · c{i + 1} · s{seed}", agent["name"], env["name"], seed,
-                                 episodes, params, {**config, "seed": seed}, tags=["sweep"],
-                                 group_id=gid, sweep_id=sid)
-                run_ids.append(rid)
-        # enqueue after creation so the queue sees the whole sweep in order
-        for rid in run_ids:
-            JOB_MANAGER.enqueue(rid)
-        return {"sweep_id": sid, "run_ids": run_ids, "n_configs": len(configs)}
+        try:
+            return launch.create_sweep_runs(_sweep_body(body))
+        except launch.LaunchError as exc:
+            raise HTTPException(exc.status, exc.detail()) from exc
 
     @app.get("/api/sweeps")
     def api_sweeps(lab: Optional[str] = None):
@@ -484,6 +478,68 @@ def create_app(web_dist: Optional[Path] = None,
         _registry.delete_sweep(sweep_id)
         return {"deleted": sweep_id, "runs_deleted": len(runs)}
 
+    # ------------------------------------------------------ experiments --
+    from rltestbed import experiments as experiments_mod
+
+    def _attachment(text: str, filename: str, media_type: str) -> Response:
+        safe = "".join(ch if ch.isalnum() or ch in "-_." else "-" for ch in filename)[:120]
+        return Response(text, media_type=media_type,
+                        headers={"Content-Disposition": f'attachment; filename="{safe}"'})
+
+    @app.post("/api/experiments/validate")
+    def api_experiment_validate(body: Dict[str, Any]):
+        """Validate an experiment file. Errors come back as data, with locations."""
+        result = experiments_mod.parse(str(body.get("text") or ""))
+        return {k: v for k, v in result.items() if k != "experiment"}
+
+    @app.post("/api/experiments/launch")
+    def api_experiment_launch(body: Dict[str, Any]):
+        try:
+            return experiments_mod.launch_file(str(body.get("text") or ""))
+        except launch.LaunchError as exc:
+            raise HTTPException(exc.status, exc.detail()) from exc
+
+    @app.get("/api/experiments/examples")
+    def api_experiment_examples():
+        return experiments_mod.examples(labs_mod.labs_with_members(list_envs(), list_agents()))
+
+    @app.get("/api/experiments/export")
+    def api_experiment_export(run_ids: str = "", sweep_id: str = "", name: str = ""):
+        """An experiment file that recreates the given runs and/or sweep."""
+        runs = [r for r in (get_run(x.strip()) for x in run_ids.split(",") if x.strip()) if r]
+        sweeps = []
+        if sweep_id:
+            sw = _registry.get_sweep(sweep_id)
+            if not sw:
+                raise HTTPException(404, f"unknown sweep '{sweep_id}'")
+            sweeps.append(sw)
+        if not runs and not sweeps:
+            raise HTTPException(404, "nothing to export")
+        title = name or (sweeps[0]["name"] if sweeps else runs[0]["name"].split(" · ")[0])
+        filename = f"{title}.yaml".replace(" ", "-")
+        text = experiments_mod.dump(title, runs=runs, sweeps=sweeps, filename=filename)
+        return _attachment(text, filename, "application/x-yaml")
+
+    @app.get("/api/runs/{run_id}/history.csv")
+    def api_run_history_csv(run_id: str):
+        run = get_run(run_id)
+        if not run:
+            raise HTTPException(404)
+        rows = _history(run_id)
+        import csv
+        import io
+
+        metric_cols = sorted({k for r in rows for k in r if k.startswith("metric_")})
+        cols = ["episode", "reward", "mean_reward", "steps", "eval_mean", "eval_std"] + metric_cols
+        buf = io.StringIO()
+        writer = csv.writer(buf)
+        writer.writerow(cols)
+        for r in rows:
+            ev = r.get("eval") if isinstance(r.get("eval"), dict) else {}
+            values = {**r, "eval_mean": ev.get("episode_mean"), "eval_std": ev.get("episode_std")}
+            writer.writerow(["" if values.get(c) is None else values.get(c) for c in cols])
+        return _attachment(buf.getvalue(), f"{run['name']}-{run_id}.csv", "text/csv")
+
     # ------------------------------------------------------ diagnostics --
     @app.get("/api/diagnostics")
     def api_diagnostics():
@@ -549,55 +605,11 @@ def create_app(web_dist: Optional[Path] = None,
     # -------------------------------------------------------------- runs --
     @app.post("/api/runs")
     def api_create_run(body: RunCreateRequest):
-        payload = body.model_dump()
-        agent = payload["agent"]
-        env = payload["env"]
-        agent_spec = next((item for item in list_agents() if item["name"] == agent), None)
-        env_spec = next((item for item in list_envs() if item["name"] == env), None)
-        if not agent_spec:
-            raise HTTPException(422, f"unknown algorithm '{agent}'")
-        if not env_spec:
-            raise HTTPException(422, f"unknown environment '{env}'")
-        compatibility = check_compat(agent_spec, env_spec)
-        if not compatibility["compatible"]:
-            raise HTTPException(422, {"message": "incompatible training configuration",
-                                      "reasons": compatibility["blockers"]})
         try:
-            typed = validate_params(agent_spec, payload["params"])
-        except ValueError as exc:
-            raise HTTPException(422, str(exc)) from exc
-
-        if payload["device"] == "cuda":
-            import torch
-            if not torch.cuda.is_available():
-                raise HTTPException(422, "CUDA was selected but is not available")
-        if payload["device"] == "mps":
-            import torch
-            if not getattr(torch.backends, "mps", None) or not torch.backends.mps.is_available():
-                raise HTTPException(422, "MPS was selected but is not available")
-
-        name = payload["name"] or f"{agent}-{env}"
-        config = {
-            key: payload[key] for key in (
-                "episodes", "seed", "eval_freq", "eval_episodes", "checkpoint_freq",
-                "max_steps", "save_best", "save_final", "auto_eval",
-                "early_stopping_patience", "log_tensorboard", "log_wandb", "preset", "mode"
-            )
-        }
-        config["compatibility"] = compatibility
-        seeds = payload.get("seeds") or [payload["seed"]]
-        group_id = new_group_id() if len(seeds) > 1 else None
-        run_ids = []
-        for seed in seeds:
-            run_name = name if len(seeds) == 1 else f"{name} · s{seed}"
-            rid = create_run(run_name, agent, env, seed, payload["episodes"], typed,
-                             {**config, "seed": seed}, tags=payload["tags"],
-                             notes=payload["description"], device=payload["device"],
-                             group_id=group_id)
-            JOB_MANAGER.enqueue(rid)
-            run_ids.append(rid)
-        # `run_id` is the original contract; `run_ids` / `group_id` are additive.
-        return {"run_id": run_ids[0], "run_ids": run_ids, "group_id": group_id}
+            # `run_id` is the original contract; `run_ids` / `group_id` are additive.
+            return launch.create_runs(body.model_dump())
+        except launch.LaunchError as exc:
+            raise HTTPException(exc.status, exc.detail()) from exc
 
     @app.get("/api/runs")
     def api_list_runs(lab: Optional[str] = None, group_id: Optional[str] = None,
