@@ -50,6 +50,8 @@ from rltestbed.schemas import (
 from rltestbed import analysis, labs as labs_mod
 from rltestbed.benchmarks import diagnostic_params, verdict as benchmark_verdict
 from rltestbed.registry import list_groups, new_group_id
+from rltestbed import registry as _registry
+from rltestbed import sweeps as sweeps_mod
 
 TERMINAL = ("completed", "stopped", "failed", "interrupted")
 
@@ -297,6 +299,145 @@ def create_app() -> FastAPI:
             "diff": analysis.config_diff(runs),
         }
 
+    # ----------------------------------------------------------- sweeps --
+    def _sweep_request(body: Dict[str, Any]):
+        agent_name, env_name = body.get("agent"), body.get("env")
+        agent = next((a for a in list_agents() if a["name"] == agent_name), None)
+        env = _env_index().get(env_name)
+        if not agent or not env:
+            raise HTTPException(404, "unknown algorithm or environment")
+        compat = check_compat(agent, env)
+        if not compat["compatible"]:
+            raise HTTPException(422, {"message": "incompatible pairing", "reasons": compat["blockers"]})
+        try:
+            configs, seeds = sweeps_mod.plan(agent, body)
+        except sweeps_mod.SweepError as exc:
+            raise HTTPException(422, {"message": "invalid sweep", "reasons": exc.errors})
+        return agent, env, configs, seeds, compat
+
+    @app.post("/api/sweeps/preview")
+    def api_sweep_preview(body: Dict[str, Any]):
+        """Expand a sweep without creating anything; errors come back as data."""
+        try:
+            _, _, configs, seeds, _ = _sweep_request(body)
+        except HTTPException as exc:
+            detail = exc.detail if isinstance(exc.detail, dict) else {"reasons": [str(exc.detail)]}
+            return {"valid": False, "errors": detail.get("reasons", []), "n_configs": 0, "n_runs": 0}
+        return {"valid": True, "errors": [], "n_configs": len(configs),
+                "n_runs": len(configs) * len(seeds), "configs": configs[:50],
+                "max_runs": sweeps_mod.MAX_RUNS}
+
+    @app.post("/api/sweeps")
+    def api_create_sweep(body: Dict[str, Any]):
+        agent, env, configs, seeds, compat = _sweep_request(body)
+        episodes = int(body.get("episodes") or 200)
+        if not 1 <= episodes <= 1_000_000:
+            raise HTTPException(422, "episodes must be between 1 and 1,000,000")
+        name = (body.get("name") or f"{agent['name']}-{env['name']} sweep").strip()[:160]
+        strategy = body.get("strategy", "grid")
+        sid = _registry.create_sweep(name, agent["name"], env["name"], episodes, strategy, body)
+        base = body.get("base_params") or {}
+        config = {
+            "episodes": episodes, "eval_freq": int(body.get("eval_freq") or 25),
+            "eval_episodes": int(body.get("eval_episodes") or 10), "checkpoint_freq": 1000,
+            "save_best": True, "save_final": False, "compatibility": compat,
+        }
+        run_ids = []
+        for i, swept in enumerate(configs):
+            params = validate_params(agent, {**base, **swept})
+            gid = new_group_id()
+            for seed in seeds:
+                rid = create_run(f"{name} · c{i + 1} · s{seed}", agent["name"], env["name"], seed,
+                                 episodes, params, {**config, "seed": seed}, tags=["sweep"],
+                                 group_id=gid, sweep_id=sid)
+                run_ids.append(rid)
+        # enqueue after creation so the queue sees the whole sweep in order
+        for rid in run_ids:
+            JOB_MANAGER.enqueue(rid)
+        return {"sweep_id": sid, "run_ids": run_ids, "n_configs": len(configs)}
+
+    @app.get("/api/sweeps")
+    def api_sweeps(lab: Optional[str] = None):
+        envs = None
+        if lab:
+            envs = [n for n, e in _env_index().items() if e["lab"] == lab]
+        out = _registry.list_sweeps(envs=envs)
+        for sw in out:
+            sw["swept"] = sorted((sw["request"].get("space") or {}).keys())
+        return out
+
+    @app.get("/api/sweeps/{sweep_id}")
+    def api_sweep(sweep_id: str, rank_by: str = "final"):
+        sw = _registry.get_sweep(sweep_id)
+        if not sw:
+            raise HTTPException(404, f"unknown sweep '{sweep_id}'")
+        if rank_by not in ("final", "best_eval"):
+            raise HTTPException(422, "rank_by must be 'final' or 'best_eval'")
+        runs = list_runs(sweep_id=sweep_id, limit=5000)
+        env = _env_index().get(sw["env"]) or {}
+        groups = analysis.aggregate([(r, _history(r["id"])) for r in runs], key="reward",
+                                    group_by="group", threshold=env.get("reward_threshold"),
+                                    max_points=150)
+        swept = sw["request"].get("space") or {}
+        by_group = {r["group_id"]: r for r in runs}
+        status_of = {r["id"]: r["status"] for r in runs}
+        configs = []
+        for g in groups:
+            params = by_group[g["group_id"]]["params"] or {}
+            statuses = [status_of[x] for x in g["run_ids"]]
+            configs.append({
+                "group_id": g["group_id"],
+                "params": {k: params.get(k) for k in swept},
+                "all_params": params,
+                "run_ids": g["run_ids"],
+                "seeds": g["seeds"],
+                "n_runs": g["n_runs"],
+                "done": sum(st in TERMINAL for st in statuses),
+                "running": sum(st in ("running", "stopping") for st in statuses),
+                "summary": g["summary"],
+                "score": g["summary"][rank_by],
+                "points": g["points"],
+            })
+        configs.sort(key=lambda c: (c["score"]["mean"] is None, -(c["score"]["mean"] or 0.0)))
+        for i, c in enumerate(configs):
+            c["rank"] = i + 1
+        # stable index = creation order, for the effects scatter
+        order = sorted(configs, key=lambda c: min(c["run_ids"]))
+        for i, c in enumerate(order):
+            c["index"] = i + 1
+        counts = {k: sum(r["status"] in v for r in runs) for k, v in {
+            "completed": ("completed",), "running": ("running", "stopping"),
+            "queued": ("queued", "created"), "failed": ("failed", "interrupted"),
+            "stopped": ("stopped",)}.items()}
+        return {**sw, "rank_by": rank_by, "threshold": env.get("reward_threshold"),
+                "n_runs": len(runs), "counts": counts, "lab": env.get("lab"),
+                "configs": configs, "effects": sweeps_mod.effects(configs, swept)}
+
+    @app.post("/api/sweeps/{sweep_id}/stop")
+    def api_stop_sweep(sweep_id: str):
+        if not _registry.get_sweep(sweep_id):
+            raise HTTPException(404)
+        import time as _t
+
+        stopped = 0
+        for r in list_runs(sweep_id=sweep_id, limit=5000):
+            if r["status"] in ("queued", "created"):
+                update_run(r["id"], status="stopped", finished_at=_t.time())
+                stopped += 1
+            elif r["status"] == "running" and JOB_MANAGER.stop(r["id"]):
+                stopped += 1
+        return {"stopped": stopped}
+
+    @app.delete("/api/sweeps/{sweep_id}")
+    async def api_delete_sweep(sweep_id: str):
+        if not _registry.get_sweep(sweep_id):
+            raise HTTPException(404)
+        runs = list_runs(sweep_id=sweep_id, limit=5000)
+        for r in runs:
+            await api_delete_run(r["id"])
+        _registry.delete_sweep(sweep_id)
+        return {"deleted": sweep_id, "runs_deleted": len(runs)}
+
     # ------------------------------------------------------ diagnostics --
     @app.get("/api/diagnostics")
     def api_diagnostics():
@@ -415,13 +556,14 @@ def create_app() -> FastAPI:
     @app.get("/api/runs")
     def api_list_runs(lab: Optional[str] = None, group_id: Optional[str] = None,
                       status: Optional[str] = None, env: Optional[str] = None,
-                      agent: Optional[str] = None, limit: int = 500):
+                      agent: Optional[str] = None, sweep_id: Optional[str] = None,
+                      limit: int = 500):
         index = _env_index()
         envs = None
         if lab:
             envs = [name for name, e in index.items() if e["lab"] == lab]
         runs = list_runs(limit=limit, group_id=group_id, status=status, env=env,
-                         agent=agent, envs=envs)
+                         agent=agent, envs=envs, sweep_id=sweep_id)
         for r in runs:
             _with_lab(r, index)
             if r["status"] in ("running", "stopping"):

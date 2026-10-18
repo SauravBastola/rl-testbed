@@ -75,7 +75,24 @@ _MIGRATIONS_RUNS = [
     ("device", "TEXT DEFAULT 'cpu'"),
     # v3: runs launched together with different seeds share a group id
     ("group_id", "TEXT"),
+    # v3.1: runs created by a hyperparameter sweep
+    ("sweep_id", "TEXT"),
 ]
+
+_SCHEMA_SWEEPS = """
+CREATE TABLE IF NOT EXISTS sweeps (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    agent TEXT NOT NULL,
+    env TEXT NOT NULL,
+    episodes INTEGER NOT NULL,
+    strategy TEXT NOT NULL,
+    request_json TEXT NOT NULL,
+    created_at REAL NOT NULL,
+    notes TEXT DEFAULT ''
+);
+CREATE INDEX IF NOT EXISTS idx_runs_sweep ON runs(sweep_id);
+"""
 
 _MIGRATIONS_MODELS = [
     ("tags_json", "TEXT DEFAULT '[]'"),
@@ -105,6 +122,7 @@ def init_db():
             for col_name, col_type in cols:
                 if col_name not in existing_cols:
                     con.execute(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type}")
+        con.executescript(_SCHEMA_SWEEPS)
 
 
 init_db()
@@ -184,7 +202,7 @@ _RUN_COLS = (
     "started_at", "finished_at", "episodes_done",
     "best_eval_reward", "final_mean_reward", "pid", "notes",
     "model_kept", "tags_json", "parent_run_id", "git_commit",
-    "host_info", "device", "group_id"
+    "host_info", "device", "group_id", "sweep_id"
 )
 
 
@@ -201,6 +219,7 @@ def create_run(
     parent_run_id: Optional[str] = None,
     device: str = "cpu",
     group_id: Optional[str] = None,
+    sweep_id: Optional[str] = None,
 ) -> str:
     rid = new_id()
     git_commit = get_git_commit()
@@ -212,8 +231,8 @@ def create_run(
             INSERT INTO runs (
                 id, name, agent, env, seed, episodes, params_json, config_json,
                 status, created_at, notes, tags_json, parent_run_id, git_commit,
-                host_info, device, group_id
-            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+                host_info, device, group_id, sweep_id
+            ) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
             """,
             (
                 rid,
@@ -233,6 +252,7 @@ def create_run(
                 host_info,
                 device,
                 group_id,
+                sweep_id,
             ),
         )
     return rid
@@ -268,12 +288,16 @@ def get_run(run_id: str) -> Optional[Dict[str, Any]]:
 
 def list_runs(limit: int = 500, agent: Optional[str] = None, env: Optional[str] = None,
               status: Optional[str] = None, group_id: Optional[str] = None,
-              envs: Optional[List[str]] = None) -> List[Dict[str, Any]]:
+              envs: Optional[List[str]] = None,
+              sweep_id: Optional[str] = None) -> List[Dict[str, Any]]:
     query = "SELECT * FROM runs WHERE 1=1"
     params: List[Any] = []
     if group_id:
         query += " AND group_id=?"
         params.append(group_id)
+    if sweep_id:
+        query += " AND sweep_id=?"
+        params.append(sweep_id)
     if envs is not None:
         if not envs:
             return []
@@ -316,6 +340,60 @@ def list_groups(limit: int = 200) -> List[Dict[str, Any]]:
             (limit,),
         ).fetchall()
     return [dict(r) for r in rows]
+
+
+def create_sweep(name: str, agent: str, env: str, episodes: int, strategy: str,
+                 request: Dict[str, Any]) -> str:
+    sid = "s" + new_id()[1:]
+    with _conn() as con:
+        con.execute(
+            "INSERT INTO sweeps (id, name, agent, env, episodes, strategy, request_json, created_at)"
+            " VALUES (?,?,?,?,?,?,?,?)",
+            (sid, name, agent, env, int(episodes), strategy, json.dumps(request), time.time()),
+        )
+    return sid
+
+
+def _sweep_row(row) -> Dict[str, Any]:
+    d = dict(row)
+    d["request"] = json.loads(d.pop("request_json") or "{}")
+    return d
+
+
+def get_sweep(sweep_id: str) -> Optional[Dict[str, Any]]:
+    with _conn() as con:
+        row = con.execute("SELECT * FROM sweeps WHERE id=?", (sweep_id,)).fetchone()
+    return _sweep_row(row) if row else None
+
+
+def list_sweeps(envs: Optional[List[str]] = None, limit: int = 200) -> List[Dict[str, Any]]:
+    """Sweeps with run counts by status and the best evaluation so far."""
+    query = """
+        SELECT s.*, COUNT(r.id) AS n_runs,
+               SUM(r.status='completed') AS completed,
+               SUM(r.status IN ('running','stopping')) AS running,
+               SUM(r.status IN ('queued','created')) AS queued,
+               SUM(r.status IN ('failed','interrupted')) AS failed,
+               SUM(r.status='stopped') AS stopped,
+               MAX(r.best_eval_reward) AS best_eval
+        FROM sweeps s LEFT JOIN runs r ON r.sweep_id = s.id
+    """
+    params: List[Any] = []
+    if envs is not None:
+        if not envs:
+            return []
+        query += f" WHERE s.env IN ({','.join('?' * len(envs))})"
+        params.extend(envs)
+    query += " GROUP BY s.id ORDER BY s.created_at DESC LIMIT ?"
+    params.append(limit)
+    with _conn() as con:
+        rows = con.execute(query, params).fetchall()
+    return [_sweep_row(r) for r in rows]
+
+
+def delete_sweep(sweep_id: str):
+    with _conn() as con:
+        con.execute("DELETE FROM sweeps WHERE id=?", (sweep_id,))
 
 
 def delete_run(run_id: str):
