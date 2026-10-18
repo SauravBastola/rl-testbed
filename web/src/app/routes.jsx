@@ -11,6 +11,7 @@ const Composer = lazy(() => import('../pages/Composer.jsx'))
 const Runs = lazy(() => import('../pages/Runs.jsx'))
 const RunDetail = lazy(() => import('../pages/RunDetail.jsx'))
 const Compare = lazy(() => import('../pages/Compare.jsx'))
+const Experiments = lazy(() => import('../pages/Experiments.jsx'))
 const Sweeps = lazy(() => import('../pages/Sweeps.jsx'))
 const SweepComposer = lazy(() => import('../pages/SweepComposer.jsx'))
 const SweepDetail = lazy(() => import('../pages/SweepDetail.jsx'))
@@ -55,6 +56,7 @@ export function AppRoutes() {
         <Route path="envs/:envName" element={<EnvironmentDetail />} />
         <Route path="algorithms/:agentName" element={<AlgorithmDetail />} />
         <Route path="compare" element={<Compare />} />
+        <Route path="experiments" element={<Experiments />} />
         <Route path="models" element={<Models />} />
         <Route path="visualize" element={<Visualize />} />
         <Route path="diagnostics" element={<Diagnostics />} />

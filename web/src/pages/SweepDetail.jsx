@@ -1,13 +1,13 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { GitCompareArrows, Play, Square, Trash2, Trophy } from 'lucide-react'
+import { FileCode2, GitCompareArrows, Play, Square, Trash2, Trophy } from 'lucide-react'
 import { useAdoptLab } from '../app/AppContext.jsx'
 import { api } from '../lib/api.js'
 import { useCatalogue, useSweep } from '../lib/queries.js'
 import { fmtNum, plural } from '../lib/format.js'
 import { SERIES_COLORS, colorVar } from '../lib/chart.js'
-import { Button, ButtonLink } from '../components/ui/Button.jsx'
+import { Button, ButtonLink, buttonClass } from '../components/ui/Button.jsx'
 import { Card, Section } from '../components/ui/Card.jsx'
 import { ErrorState, Notice, Skeleton } from '../components/ui/Feedback.jsx'
 import { Modal } from '../components/ui/Overlay.jsx'
@@ -129,6 +129,9 @@ export default function SweepDetail() {
               Stop sweep
             </Button>
           )}
+          <a href={api.exportUrl({ sweepId: sw.id })} download className={buttonClass()}>
+            <FileCode2 size={16} aria-hidden /> Export
+          </a>
           <Button variant="danger" icon={Trash2} onClick={() => setConfirm(true)}>
             Delete
           </Button>

@@ -11,6 +11,7 @@ const PAGE_NAMES = {
   envs: 'Environments',
   algorithms: 'Algorithms',
   compare: 'Compare',
+  experiments: 'Experiments',
   models: 'Models',
   visualize: 'Visualize',
   diagnostics: 'Diagnostics',

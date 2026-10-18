@@ -95,6 +95,15 @@ export const api = {
   createSweep: (body) => request('/api/sweeps', post(body)),
   stopSweep: (id) => request(`/api/sweeps/${id}/stop`, post()),
   deleteSweep: (id) => request(`/api/sweeps/${id}`, { method: 'DELETE' }),
+  // experiment files and exports
+  experimentExamples: () => request('/api/experiments/examples'),
+  validateExperiment: (text) => request('/api/experiments/validate', post({ text })),
+  launchExperiment: (text) => request('/api/experiments/launch', post({ text })),
+  exportUrl: ({ runIds, sweepId, name } = {}) =>
+    `/api/experiments/export${q({ run_ids: runIds, sweep_id: sweepId, name })}`,
+  historyCsvUrl: (id) => `/api/runs/${id}/history.csv`,
+  compareCsvUrl: (runIds, metric, groupBy) =>
+    `/api/compare/aggregate${q({ run_ids: runIds, metric, group_by: groupBy, format: 'csv' })}`,
   // models
   models: () => request('/api/models'),
   updateModel: (id, body) => request(`/api/models/${id}`, patch(body)),

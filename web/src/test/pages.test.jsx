@@ -42,6 +42,7 @@ const ROUTES = [
   ['/lab/foundations/sweeps', /Q-learning step size and discount/],
   ['/lab/foundations/sweeps/new', /Search space/],
   ['/sweeps/s52el9r0', /What each parameter does/],
+  ['/experiments', /Validated by the same rules/],
   ['/no-such-page', /Page not found/],
 ]
 
@@ -58,6 +59,23 @@ describe('routes', () => {
     const href = decodeURIComponent(link.getAttribute('href'))
     expect(href).toContain('agent=q_learning')
     expect(href).toContain('"alpha":0.2')
+  })
+
+  it('exports a run as an experiment file and as CSV', async () => {
+    renderAt('/runs/0y7simbc')
+    const exp = await screen.findByRole('link', { name: /Export as an experiment file/ })
+    expect(exp.getAttribute('href')).toBe('/api/experiments/export?run_ids=0y7simbc')
+  })
+
+  it('exports a sweep as an experiment file', async () => {
+    renderAt('/sweeps/s52el9r0')
+    const sweep = await screen.findByRole('link', { name: /^Export$/ })
+    expect(sweep.getAttribute('href')).toBe('/api/experiments/export?sweep_id=s52el9r0')
+  })
+
+  it('shows a valid experiment file with a launch button', async () => {
+    renderAt('/experiments')
+    expect(await screen.findByRole('button', { name: /Launch \d+ runs/ })).toBeInTheDocument()
   })
 
   it('redirects v2 URLs into the current lab', async () => {

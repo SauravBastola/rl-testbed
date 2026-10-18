@@ -5,6 +5,7 @@ import {
   Archive,
   Copy,
   Download,
+  FileCode2,
   FileText,
   GitCompareArrows,
   Pencil,
@@ -18,7 +19,7 @@ import { api } from '../lib/api.js'
 import { useCatalogue, useLiveRun, useRunMutation } from '../lib/queries.js'
 import { fmtBytes, fmtDate, fmtDuration, fmtNum, isActive, metricLabel } from '../lib/format.js'
 import { availableMetrics, seriesFromHistory } from '../lib/curves.js'
-import { Button, IconButton } from '../components/ui/Button.jsx'
+import { Button, IconButton, buttonClass } from '../components/ui/Button.jsx'
 import { Card, CardHeader } from '../components/ui/Card.jsx'
 import { EmptyState, ErrorState, Notice, Skeleton, SkeletonRows } from '../components/ui/Feedback.jsx'
 import { Input, Textarea, Field } from '../components/ui/Field.jsx'
@@ -304,6 +305,15 @@ export default function RunDetail() {
           <Button icon={GitCompareArrows} onClick={() => navigate(`/compare?runs=${r.id}`)}>
             Compare
           </Button>
+          <a
+            href={api.exportUrl({ runIds: r.id })}
+            download
+            aria-label="Export as an experiment file"
+            title="Export as an experiment file"
+            className={buttonClass({ variant: 'secondary', className: 'w-9 px-0' })}
+          >
+            <FileCode2 size={16} aria-hidden />
+          </a>
           <IconButton
             icon={Copy}
             label="Clone with the same settings"
@@ -514,7 +524,14 @@ export default function RunDetail() {
               )}
             </div>
           )}
-          {tab === 'artifacts' && <ArtifactsPanel runId={r.id} />}
+          {tab === 'artifacts' && (
+            <div className="space-y-3">
+              <a href={api.historyCsvUrl(r.id)} download className={buttonClass({ size: 'sm' })}>
+                <Download size={14} aria-hidden /> Episode history as CSV
+              </a>
+              <ArtifactsPanel runId={r.id} />
+            </div>
+          )}
           {tab === 'log' && <LogPanel runId={r.id} live={live} />}
         </div>
       </div>

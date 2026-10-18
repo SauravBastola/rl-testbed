@@ -1,14 +1,14 @@
 import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { Check, GitCompareArrows, Layers, Link2, Plus, X } from 'lucide-react'
+import { Check, Download, FileCode2, GitCompareArrows, Layers, Link2, Plus, X } from 'lucide-react'
 import { api } from '../lib/api.js'
 import { useCatalogue, useRuns } from '../lib/queries.js'
 import { fmtDuration, fmtNum, metricLabel, plural } from '../lib/format.js'
 import { colorVar, SERIES_COLORS } from '../lib/chart.js'
 import { seriesFromGroup } from '../lib/curves.js'
 import { cn } from '../lib/utils.js'
-import { Button } from '../components/ui/Button.jsx'
+import { Button, buttonClass } from '../components/ui/Button.jsx'
 import { Card, CardHeader, Section } from '../components/ui/Card.jsx'
 import { SearchInput } from '../components/ui/Field.jsx'
 import { EmptyState, ErrorState, Notice, Skeleton } from '../components/ui/Feedback.jsx'
@@ -271,6 +271,12 @@ export default function Compare() {
               <Button icon={Link2} onClick={copyLink}>
                 Copy link
               </Button>
+              <a href={api.exportUrl({ runIds: selected.join(',') })} download className={buttonClass()}>
+                <FileCode2 size={16} aria-hidden /> Experiment file
+              </a>
+              <a href={api.compareCsvUrl(selected.join(','), metric, groupBy)} download className={buttonClass()}>
+                <Download size={16} aria-hidden /> CSV
+              </a>
               <Button variant="ghost" onClick={() => setParams({}, { replace: true })}>
                 Clear
               </Button>

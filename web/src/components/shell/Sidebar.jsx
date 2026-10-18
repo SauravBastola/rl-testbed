@@ -8,6 +8,7 @@ import {
   ChevronsUpDown,
   Cpu,
   Eye,
+  FileCode2,
   FlaskConical,
   GitCompareArrows,
   GraduationCap,
@@ -263,6 +264,9 @@ export function Sidebar({ onOpenPalette, onOpenSystem, onNavigate }) {
       <Group title="Across labs">
         <NavItem to="/compare" icon={GitCompareArrows} onNavigate={onNavigate}>
           Compare
+        </NavItem>
+        <NavItem to="/experiments" icon={FileCode2} onNavigate={onNavigate}>
+          Experiments
         </NavItem>
         <NavItem to="/models" icon={Boxes} onNavigate={onNavigate}>
           Models
