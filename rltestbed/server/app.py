@@ -515,7 +515,7 @@ def create_app(web_dist: Optional[Path] = None,
             sweeps.append(sw)
         if not runs and not sweeps:
             raise HTTPException(404, "nothing to export")
-        title = name or (sweeps[0]["name"] if sweeps else runs[0]["name"].split(" · ")[0])
+        title = name or experiments_mod.default_name(runs, sweeps)
         filename = f"{title}.yaml".replace(" ", "-")
         text = experiments_mod.dump(title, runs=runs, sweeps=sweeps, filename=filename)
         return _attachment(text, filename, "application/x-yaml")

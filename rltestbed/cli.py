@@ -139,7 +139,7 @@ def export_experiment(
             continue
         typer.secho(f"No run, sweep or group with id '{item}'.", fg=typer.colors.RED, err=True)
         raise typer.Exit(1)
-    title = name or (sweeps[0]["name"] if sweeps else runs[0]["name"].split(" · ")[0])
+    title = name or experiments.default_name(runs, sweeps)
     text = experiments.dump(title, runs=runs, sweeps=sweeps,
                             filename=output.name if output else "experiment.yaml")
     if output:

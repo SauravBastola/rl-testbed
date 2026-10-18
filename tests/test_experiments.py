@@ -104,6 +104,12 @@ def test_launch_creates_everything_and_tags_runs(client):
     assert any("exp:Smoke" in r["tags"] for r in runs)
 
 
+def test_export_keeps_the_experiment_name(client):
+    out = client.post("/api/experiments/launch", json={"text": GOOD}).json()
+    run_ids = ",".join(out["runs"][0]["run_ids"])
+    assert yaml.safe_load(client.get(f"/api/experiments/export?run_ids={run_ids}").text)["name"] == "Smoke"
+
+
 def test_launch_is_all_or_nothing(client):
     # a valid file plus one incompatible run entry
     bad = GOOD.replace("runs:\n", "runs:\n  - {agent: dqn, env: pendulum, episodes: 5}\n", 1)

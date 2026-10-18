@@ -166,6 +166,16 @@ def _run_key(run: Dict[str, Any]) -> str:
                        run.get("device", "cpu")], sort_keys=True)
 
 
+def default_name(runs: List[Dict[str, Any]], sweeps: List[Dict[str, Any]]) -> str:
+    """The original experiment's name if every run came from it, else a sensible one."""
+    if sweeps:
+        return sweeps[0]["name"]
+    names = {t[4:] for r in runs for t in (r.get("tags") or []) if t.startswith("exp:")}
+    if len(names) == 1 and all(any(t.startswith("exp:") for t in r.get("tags") or []) for r in runs):
+        return names.pop()
+    return runs[0]["name"].split(" · ")[0]
+
+
 def run_entries(runs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Runs that differ only by seed collapse into one entry with a seed list."""
     groups: Dict[str, List[Dict[str, Any]]] = {}
@@ -185,7 +195,8 @@ def run_entries(runs: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
             entry["seed"] = seeds[0]
         else:
             entry["seeds"] = seeds
-        entry["params"] = head.get("params") or {}
+        if head.get("params"):
+            entry["params"] = head["params"]
         for key in ("eval_freq", "eval_episodes", "max_steps"):
             if cfg.get(key) is not None:
                 entry[key] = cfg[key]
