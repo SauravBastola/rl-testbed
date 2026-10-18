@@ -1,0 +1,22 @@
+[project]
+name = "rl-testbed"
+version = "2.0.0"
+description = "A comprehensive RL testbed: train, track, compare and manage agents via CLI or web app"
+# Pinned to the 3.11 series: several env deps (gymnasium 0.29.1, torch 2.4)
+# are verified against it. Use a range, not "==3.11", so patch releases
+# like 3.11.10 still satisfy it.
+requires-python = ">=3.11,<3.12"
+
+[project.scripts]
+rltestbed = "rltestbed.cli:app"
+
+# The repo root also contains web/, legacy/, tests/, custom_envs/ and friends,
+# so setuptools' flat-layout auto-discovery refuses to guess. Be explicit:
+# only the rltestbed package (and its subpackages) are installed.
+[tool.setuptools.packages.find]
+include = ["rltestbed*"]
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+extend-exclude = 'legacy/'

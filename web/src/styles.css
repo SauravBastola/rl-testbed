@@ -1,0 +1,312 @@
+/* ============================================================
+   Prism v3 — tokens, themes and base styles.
+
+   Three layers:
+     primitive  --hue-*        raw hues, re-tuned per theme
+     semantic   --bg, --text…  what components consume via Tailwind utilities
+     lab        --accent       re-pointed by [data-lab] on <html>
+
+   Rules: no hex literal in any component; every colour below is an RGB triplet.
+   Contrast for each theme is verified by `npm run check:tokens`.
+   ============================================================ */
+@import '@fontsource-variable/inter';
+@import '@fontsource/space-grotesk/500.css';
+@import '@fontsource/space-grotesk/600.css';
+@import '@fontsource/space-grotesk/700.css';
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ---------------------------------------------------------------- midnight */
+  :root,
+  :root[data-theme='midnight'] {
+    color-scheme: dark;
+    --bg: 11 13 18;
+    --bg-soft: 14 17 23;
+    --surface: 19 22 29;
+    --surface-2: 25 29 38;
+    --surface-3: 33 38 49;
+    --border: 38 43 54;
+    --border-strong: 58 65 80;
+    --text: 233 236 242;
+    --text-muted: 160 168 182;
+    --text-subtle: 122 130 145;
+    --text-inverse: 11 13 18;
+
+    --hue-violet: 167 139 250;
+    --hue-cyan: 45 205 230;
+    --hue-amber: 245 184 72;
+    --hue-rose: 246 118 146;
+    --hue-lime: 160 214 72;
+    --hue-sky: 106 166 255;
+
+    --brand: var(--hue-violet);
+    --success: 74 214 160;
+    --warning: 245 184 72;
+    --danger: 246 112 112;
+    --info: 106 166 255;
+
+    --chart-2: 106 166 255;
+    --chart-3: 245 184 72;
+    --chart-4: 246 118 146;
+    --chart-5: 74 214 160;
+    --chart-6: 200 160 255;
+    --chart-grid: 255 255 255;
+    --chart-grid-alpha: 0.06;
+
+    --shadow-raised: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px -12px rgb(0 0 0 / 0.55);
+    --shadow-overlay: 0 2px 6px rgb(0 0 0 / 0.35), 0 24px 64px -16px rgb(0 0 0 / 0.7);
+    --ambient-strength: 1;
+    --grid-line: 255 255 255;
+    --grid-alpha: 0.022;
+  }
+
+  /* ---------------------------------------------------------------- daylight */
+  :root[data-theme='daylight'] {
+    color-scheme: light;
+    --bg: 244 246 249;
+    --bg-soft: 236 239 244;
+    --surface: 255 255 255;
+    --surface-2: 247 248 251;
+    --surface-3: 237 240 245;
+    --border: 221 225 232;
+    --border-strong: 186 193 205;
+    --text: 21 25 33;
+    --text-muted: 74 82 97;
+    --text-subtle: 98 106 121;
+    --text-inverse: 255 255 255;
+
+    /* darker hues: every one clears 4.5:1 on white for chart lines and labels */
+    --hue-violet: 109 56 214;
+    --hue-cyan: 6 114 140;
+    --hue-amber: 156 86 0;
+    --hue-rose: 186 32 76;
+    --hue-lime: 62 112 10;
+    --hue-sky: 32 99 205;
+
+    --success: 8 124 84;
+    --warning: 156 86 0;
+    --danger: 196 40 40;
+    --info: 32 99 205;
+
+    --chart-2: 32 99 205;
+    --chart-3: 156 86 0;
+    --chart-4: 186 32 76;
+    --chart-5: 8 124 84;
+    --chart-6: 120 72 190;
+    --chart-grid: 15 23 42;
+    --chart-grid-alpha: 0.07;
+
+    --shadow-raised: 0 1px 2px rgb(15 23 42 / 0.06), 0 8px 24px -12px rgb(15 23 42 / 0.16);
+    --shadow-overlay: 0 2px 6px rgb(15 23 42 / 0.08), 0 24px 64px -16px rgb(15 23 42 / 0.28);
+    --ambient-strength: 0.5;
+    --grid-line: 15 23 42;
+    --grid-alpha: 0.035;
+  }
+
+  /* ---------------------------------------------------------------- graphite */
+  /* Low-chroma, high-contrast neutral for long sessions: no hue in the canvas,
+     muted lab accents, brighter text. */
+  :root[data-theme='graphite'] {
+    color-scheme: dark;
+    --bg: 20 20 21;
+    --bg-soft: 24 24 26;
+    --surface: 29 29 31;
+    --surface-2: 35 35 38;
+    --surface-3: 44 44 48;
+    --border: 52 52 56;
+    --border-strong: 78 78 84;
+    --text: 242 242 244;
+    --text-muted: 178 178 184;
+    --text-subtle: 142 142 149;
+    --text-inverse: 20 20 21;
+
+    --hue-violet: 186 170 240;
+    --hue-cyan: 120 200 214;
+    --hue-amber: 232 182 98;
+    --hue-rose: 232 150 164;
+    --hue-lime: 176 206 120;
+    --hue-sky: 140 178 236;
+
+    --success: 128 206 168;
+    --warning: 232 182 98;
+    --danger: 238 136 128;
+    --info: 140 178 236;
+
+    --chart-2: 140 178 236;
+    --chart-3: 232 182 98;
+    --chart-4: 232 150 164;
+    --chart-5: 128 206 168;
+    --chart-6: 200 200 206;
+    --chart-grid: 255 255 255;
+    --chart-grid-alpha: 0.07;
+    --ambient-strength: 0;
+    --grid-alpha: 0.018;
+  }
+
+  /* ------------------------------------------------------------- lab accents */
+  :root {
+    --accent: var(--hue-violet);
+  }
+  :root[data-lab='foundations'] {
+    --accent: var(--hue-violet);
+  }
+  :root[data-lab='classic'] {
+    --accent: var(--hue-cyan);
+  }
+  :root[data-lab='continuous'] {
+    --accent: var(--hue-amber);
+  }
+  :root[data-lab='perception'] {
+    --accent: var(--hue-rose);
+  }
+  :root[data-lab='multiagent'] {
+    --accent: var(--hue-lime);
+  }
+  :root {
+    --accent-contrast: var(--text-inverse);
+    --chart-1: var(--accent);
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-bg font-sans text-body text-text;
+    font-feature-settings: 'cv11', 'ss01';
+    letter-spacing: -0.006em;
+    min-height: 100vh;
+  }
+
+  /* Ambient canvas: a faint accent wash top-right and a fading engineering grid.
+     Fixed and pointer-transparent so it never touches layout or text. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    pointer-events: none;
+    opacity: var(--ambient-strength);
+    background:
+      radial-gradient(900px 520px at 88% -8%, rgb(var(--accent) / 0.11), transparent 62%),
+      radial-gradient(640px 420px at 8% 12%, rgb(var(--hue-sky) / 0.05), transparent 60%);
+  }
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background-image:
+      linear-gradient(to right, rgb(var(--grid-line) / var(--grid-alpha)) 1px, transparent 1px),
+      linear-gradient(to bottom, rgb(var(--grid-line) / var(--grid-alpha)) 1px, transparent 1px);
+    background-size: 40px 40px;
+    mask-image: linear-gradient(to bottom, rgb(0 0 0 / 0.8), transparent 70%);
+    -webkit-mask-image: linear-gradient(to bottom, rgb(0 0 0 / 0.8), transparent 70%);
+  }
+
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
+    letter-spacing: -0.02em;
+  }
+  code,
+  kbd,
+  samp,
+  pre {
+    @apply font-mono;
+    font-size: 0.92em;
+  }
+  ::selection {
+    background: rgb(var(--accent) / 0.3);
+  }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--accent));
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgb(var(--border-strong) / 0.7);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgb(var(--text-subtle));
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+}
+
+@layer components {
+  /* Numbers that are compared down a column. */
+  .num {
+    @apply font-mono;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0;
+  }
+  .label {
+    @apply text-caption font-medium text-subtle;
+  }
+
+  /* Long-form copy from the specs. */
+  .prose-lab {
+    @apply text-body text-muted;
+    max-width: 72ch;
+  }
+  .prose-lab p + p {
+    @apply mt-3;
+  }
+  .prose-lab strong {
+    @apply font-semibold text-text;
+  }
+  .prose-lab code {
+    @apply rounded-sm bg-surface-3 px-1 text-text;
+  }
+}
+
+@layer utilities {
+  .surface-glass {
+    background: rgb(var(--surface) / 0.86);
+    backdrop-filter: blur(16px) saturate(140%);
+    -webkit-backdrop-filter: blur(16px) saturate(140%);
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Accessibility: honour the OS-level "reduce motion" setting. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+.katex {
+  font-size: 1.05em;
+}

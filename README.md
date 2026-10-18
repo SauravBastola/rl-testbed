@@ -1,0 +1,165 @@
+# RL Testbed
+
+A local laboratory for reinforcement learning. Pick an environment and an
+algorithm, launch a run in an isolated process, watch the learning curve stream
+in, compare configurations across seeds, keep the models worth keeping, and read
+reference material about every method and environment, all in one web app with
+a matching CLI.
+
+The catalogue is organised into **labs**, one per shape of learning problem:
+
+| Lab | What it studies | Environments |
+|---|---|---|
+| Foundations | Tabular methods on small, fully observable worlds | Gridworld, Dyna Maze, N-Chain, RiverSwim, Windy Gridworld, bandits, Catch, FrozenLake, CliffWalking, Taxi, Blackjack |
+| Classic Control | Function approximation on low-dimensional dynamics | CartPole, MountainCar (+ continuous), Acrobot, Pendulum, LunarLander |
+| Continuous Control | Torque control of simulated bodies | 11 MuJoCo tasks, BipedalWalker |
+| Perception | Learning to act from pixels | 5 MinAtar games |
+| Multi-Agent | Two-player games against an opponent | Tic-Tac-Toe, Connect Four, Texas Hold'em |
+
+Plus a global **Diagnostics** page: five probe environments with known answers,
+shown as a pass/fail matrix across every algorithm.
+
+**Catalogue:** 44 environments (39 for training, 5 diagnostic probes) and 30
+algorithms (21 trainable, 9 planned, each with the reason it is not trainable
+yet). Environments whose optional dependency is missing are listed as
+unavailable with an install command, rather than hidden.
+
+![Classic Control lab overview](docs/screenshots/lab_classic--midnight.png)
+
+More in [docs/screenshots](docs/screenshots): the run composer, a live run, seed
+comparison with a ±1σ band, the diagnostics matrix, and all three themes.
+
+## Quick start
+
+```bash
+# Python 3.11 is required (gymnasium 0.29.1 and torch 2.4 are pinned against it)
+python3.11 -m venv .venv && source activate.sh
+pip install -r requirements.txt
+pip install -e . --no-deps          # installs the `rltestbed` command
+
+cd web && npm install && npm run build && cd ..   # build the web app once
+
+rltestbed serve --port 8000         # open http://localhost:8000
+```
+
+Optional extras unlock more of the catalogue; the app runs without them:
+
+```bash
+pip install "gymnasium[mujoco]"     # Continuous Control lab
+pip install "gymnasium[box2d]"      # LunarLander, BipedalWalker
+pip install rlcard                  # Texas Hold'em
+```
+
+Your first run, from the browser: open a lab, press **New run**, pick an
+environment and an algorithm (incompatible pairs are blocked with a reason before
+anything starts), and launch. From the terminal:
+
+```bash
+rltestbed train dqn cartpole --episodes 300
+rltestbed train sac half_cheetah --episodes 200 --keep
+```
+
+## Using the app
+
+- **Lab overview:** the lab's newest run with its real curve, live counts, and
+  a curriculum whose steps open pre-filled runs.
+- **New run:** one page with three steps (choose, configure, review). Hyperparameter
+  forms are generated from each algorithm's spec. Choose 3 or 5 seeds to launch
+  them as one group.
+- **Run detail:** live learning curve with greedy evaluations and the solved
+  threshold, algorithm-specific metric charts, the episode table, configuration,
+  downloadable artifacts, and the worker log. Stop, restart, clone, keep the model.
+- **Compare:** seeds of the same configuration pool into a mean with a ±1σ band,
+  with a summary (final, best eval, episodes to solve, wall clock), a per-seed
+  table, and a list of exactly which settings differ.
+- **Diagnostics:** "Run missing checks" queues every expected algorithm × probe
+  pair; failed cells link to their runs.
+- **Visualize:** step through one episode frame by frame with a random policy or
+  a kept model. Environments without a renderer show the observation vector.
+- `⌘K` / `Ctrl K` or `/` opens the command palette; `⌘⇧L` switches lab.
+- Three themes: Midnight, Daylight and Graphite.
+
+## Architecture
+
+```
+browser ──REST /api/*──► FastAPI (rltestbed/server/app.py) ──► SQLite registry
+        ◄─WS /ws/runs/id─┘        │ queue (jobs.py, concurrency limit)
+                                  ▼
+                 subprocess: rltestbed.cli train-worker --run-id …
+                 Trainer → history.jsonl, progress.json, checkpoints, worker.log
+```
+
+- **Specs are the single source of truth.** Each algorithm's `SPEC`
+  (`build_spec` in `core/agents/base.py`) and each environment's `EnvSpec`
+  generate the forms, documentation pages and compatibility rules. Algorithm
+  theory lives in `core/agents/theory.py`.
+- **Compatibility is decided in one place:** `capabilities.check_compat`, used
+  by the API before launch and by every UI verdict.
+- **Labs are data:** `rltestbed/labs.py`. A run belongs to the lab of its environment.
+- **Runs are subprocesses.** A crash never takes down the server, and a run keeps
+  training through a server restart. At most `RLTESTBED_MAX_CONCURRENT` runs
+  train at once (default: half the CPUs, minimum 2); the rest wait as `queued`.
+- **Seed aggregation is server-side:** `rltestbed/analysis.py`.
+
+Frontend: React 18, Vite, Tailwind with design tokens (`web/src/styles.css`),
+TanStack Query, Framer Motion, a custom SVG chart (`components/charts`), KaTeX
+for algorithm theory, self-hosted fonts. See [docs/DECISIONS.md](docs/DECISIONS.md)
+for the reasoning behind each choice.
+
+## API additions in v3
+
+All v2 endpoints and response shapes still work. New:
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /api/labs` | Lab definitions with their environments |
+| `GET /api/system` | Versions, storage, installed extras, queue state |
+| `POST /api/runs` with `seeds: [..]` | One run per seed under a shared `group_id` |
+| `GET /api/runs?lab=&group_id=&status=&env=&agent=` | Filtered run list (each run has `lab`) |
+| `PATCH /api/runs/{id}` | Edit name, notes, tags |
+| `GET /api/runs/{id}/history?since=N` | Episodes after N, for cheap live polling |
+| `GET /api/runs/{id}/artifacts/{path}` | Download an artifact |
+| `GET /api/groups`, `GET /api/groups/{id}` | Seed groups and their aggregate curve |
+| `GET /api/compare/aggregate?run_ids=&metric=&group_by=` | Mean ± std per configuration, plus config diff |
+| `GET /api/diagnostics`, `POST /api/diagnostics/run` | Verdict matrix; queue probe runs |
+
+Environments gain `lab`, `available`, `unavailable_reason`, `requires`,
+`sparse_reward` and `reward_threshold`. Algorithms gain `status_reason`, `paper`
+and `docs.math`.
+
+## Extending
+
+- **Algorithm:** subclass `Agent`, set `SPEC = build_spec(...)`, register it in
+  `core/agents/__init__.py`, add theory to `theory.py`, and add it to a probe's
+  `should_pass` in `benchmarks.py`. Its form, documentation page and
+  compatibility checks follow automatically.
+- **Environment:** drop a file into `custom_envs/` (see its README), or register
+  it in `core/envs/`. Set `requires` for optional dependencies and `lab` to place
+  it in a specific lab.
+- **Lab:** append a dict to `LABS` in `rltestbed/labs.py`.
+
+## Development
+
+```bash
+python -m pytest tests -q            # 42 tests
+cd web
+npm run dev                          # :5173, proxies /api and /ws to :8000
+npm run lint                         # ESLint, including a no-hex-colour rule
+npm run test                         # Vitest: every route plus helpers
+npm run check:tokens                 # hex scan + WCAG contrast for all themes
+npm run format                       # Prettier
+npm run build                        # the server serves web/dist
+```
+
+## Notes
+
+- `rltestbed/compat.py` restores `np.float_` for Gymnasium 0.29.1's Acrobot under
+  NumPy 2 and strips an attribute MuJoCo ≥ 3 rejects from bundled XML assets.
+- Pixel observations are flattened for the MLP networks; the compatibility check
+  warns about this on every pixel environment.
+- In two-player games the learner plays one seat against a random legal opponent.
+  Self-play is planned.
+- Stopping a run finishes the current episode and writes a checkpoint; stopped,
+  failed and interrupted runs can be restarted.
+- Further reference: [docs/ALGORITHMS.md](docs/ALGORITHMS.md),
+  [docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md), [docs/MUJOCO.md](docs/MUJOCO.md).
