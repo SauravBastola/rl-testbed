@@ -6,11 +6,11 @@ in the same commit that finishes an item.
 
 ## v3.1: experimentation at scale (this release)
 
-- [ ] **Hyperparameter sweeps.** Grid or random search over any algorithm's
+- [x] **Hyperparameter sweeps.** Grid or random search over any algorithm's
   parameters, several seeds per configuration, queued through the job manager.
   Done when a sweep can be launched from the UI, its configurations are ranked by
   mean final return ± std, and the best configuration opens pre-filled in New run.
-- [ ] **Per-parameter effect view.** For every swept parameter, mean result per
+- [x] **Per-parameter effect view.** For every swept parameter, mean result per
   value, so "which knob mattered" is visible without reading a table.
 - [x] **Continuous-action PPO.** Gaussian policy; runs on Pendulum and MuJoCo.
 - [x] **Continuous probe.** A one-step continuous-action diagnostic, so SAC, TD3,

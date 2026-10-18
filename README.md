@@ -16,18 +16,19 @@ The catalogue is organised into **labs**, one per shape of learning problem:
 | Perception | Learning to act from pixels | 5 MinAtar games |
 | Multi-Agent | Two-player games against an opponent | Tic-Tac-Toe, Connect Four, Texas Hold'em |
 
-Plus a global **Diagnostics** page: five probe environments with known answers,
-shown as a pass/fail matrix across every algorithm.
+Plus a global **Diagnostics** page: six probe environments with known answers
+(five discrete, one continuous), shown as a pass/fail matrix across every algorithm.
 
-**Catalogue:** 44 environments (39 for training, 5 diagnostic probes) and 30
-algorithms (21 trainable, 9 planned, each with the reason it is not trainable
+**Catalogue:** 45 environments (39 for training, 6 diagnostic probes) and 30
+algorithms (22 trainable, 8 planned, each with the reason it is not trainable
 yet). Environments whose optional dependency is missing are listed as
 unavailable with an install command, rather than hidden.
 
 ![Classic Control lab overview](docs/screenshots/lab_classic--midnight.png)
 
 More in [docs/screenshots](docs/screenshots): the run composer, a live run, seed
-comparison with a ±1σ band, the diagnostics matrix, and all three themes.
+comparison with a ±1σ band, a hyperparameter sweep, the diagnostics matrix, and
+all three themes.
 
 ## Quick start
 
@@ -69,6 +70,10 @@ rltestbed train sac half_cheetah --episodes 200 --keep
 - **Run detail:** live learning curve with greedy evaluations and the solved
   threshold, algorithm-specific metric charts, the episode table, configuration,
   downloadable artifacts, and the worker log. Stop, restart, clone, keep the model.
+- **Sweeps:** pick parameters to vary (value lists, or uniform/log ranges for
+  random search) and a number of seeds; every configuration runs through the
+  queue. Results rank configurations by mean ± std, show each parameter's effect,
+  and open the best configuration in New run with one click.
 - **Compare:** seeds of the same configuration pool into a mean with a ±1σ band,
   with a summary (final, best eval, episodes to solve, wall clock), a per-seed
   table, and a list of exactly which settings differ.
@@ -106,7 +111,7 @@ TanStack Query, Framer Motion, a custom SVG chart (`components/charts`), KaTeX
 for algorithm theory, self-hosted fonts. See [docs/DECISIONS.md](docs/DECISIONS.md)
 for the reasoning behind each choice.
 
-## API additions in v3
+## API additions in v3 and v3.1
 
 All v2 endpoints and response shapes still work. New:
 
@@ -122,6 +127,10 @@ All v2 endpoints and response shapes still work. New:
 | `GET /api/groups`, `GET /api/groups/{id}` | Seed groups and their aggregate curve |
 | `GET /api/compare/aggregate?run_ids=&metric=&group_by=` | Mean ± std per configuration, plus config diff |
 | `GET /api/diagnostics`, `POST /api/diagnostics/run` | Verdict matrix; queue probe runs |
+| `POST /api/sweeps/preview` | Expand a search space: counts and errors, creates nothing |
+| `POST /api/sweeps`, `GET /api/sweeps?lab=` | Launch a sweep; list sweeps with progress |
+| `GET /api/sweeps/{id}?rank_by=final\|best_eval` | Ranked configurations and per-parameter effects |
+| `POST /api/sweeps/{id}/stop`, `DELETE /api/sweeps/{id}` | Stop or delete a sweep and its runs |
 
 Environments gain `lab`, `available`, `unavailable_reason`, `requires`,
 `sparse_reward` and `reward_threshold`. Algorithms gain `status_reason`, `paper`
@@ -143,11 +152,11 @@ and `docs.math`.
 ```bash
 pip install -r requirements-dev.txt  # adds pytest
 make help                            # list common tasks; `make check` runs what CI runs
-python -m pytest tests -q            # 42 tests
+python -m pytest tests -q            # 62 tests
 cd web
 npm run dev                          # :5173, proxies /api and /ws to :8000
 npm run lint                         # ESLint, including a no-hex-colour rule
-npm run test                         # Vitest: every route plus helpers
+npm run test                         # Vitest: every route plus helpers (38 tests)
 npm run check:tokens                 # hex scan + WCAG contrast for all themes
 npm run format                       # Prettier
 npm run build                        # the server serves web/dist

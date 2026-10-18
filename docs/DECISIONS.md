@@ -161,6 +161,27 @@ continuous learners must solve. Gaussian PPO subclasses PPO and overrides only t
 `_evaluate` hook, the network and action sampling, so the GAE and clipping logic
 exists once.
 
+## v3.1: hyperparameter sweeps
+
+**A configuration is a seed group.** Each configuration in a sweep gets its own
+`group_id`, so pooling seeds into mean ± std reuses `analysis.aggregate` instead of
+a second implementation. Runs also carry `sweep_id`; a sweep's status is derived
+from its runs rather than stored, for the same reason a run's lab is derived.
+
+**Validation happens before creation.** `sweeps.plan` refuses invalid spaces and
+anything over 200 runs (configurations × seeds), checking the grid size before
+expanding it. Every configuration passes the same `validate_params` as a single
+run. `POST /api/sweeps/preview` returns errors as data, so the composer can show
+them live without catching exceptions.
+
+**Ranking is by mean final return by default**, switchable to best evaluation.
+Final return (last 10% of training episodes) reflects the whole learning process;
+best evaluation rewards a single lucky greedy check. The detail page states the
+seed count next to the winner and warns when it is one.
+
+**No early stopping yet.** Successive halving would save compute but needs runs to
+be resumable mid-way; it is on the roadmap behind "resume from checkpoint".
+
 ## Component conventions
 
 The conventions asked for one component per file. Primitives are instead grouped by
