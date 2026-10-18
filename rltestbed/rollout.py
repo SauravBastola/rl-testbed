@@ -172,6 +172,57 @@ def _flat(obs) -> list:
     return np.asarray(raw, dtype=float).flatten().tolist()
 
 
+def run_language(env_name: str, spec: Any, model: Optional[Dict], n: int, seed: int) -> Dict[str, Any]:
+    """Sample answers from a language policy, with each token's probability."""
+    import random as _random
+
+    import torch
+
+    from rltestbed.core.lm.base import base_model
+    from rltestbed.core.lm.model import TinyGPT, completion_logprobs, decode, encode, sample
+    from rltestbed.core.lm.tasks import TASKS
+
+    task = TASKS[env_name]
+    if model:
+        policy = TinyGPT()
+        ckpt = torch.load(model["path"], map_location="cpu", weights_only=False)
+        policy.load_state_dict(ckpt["policy"])
+        who = f"the kept {model['agent']} model"
+    else:
+        policy = base_model(env_name)
+        who = "the pretrained base model"
+    policy.eval()
+    rng = _random.Random(seed)
+    pairs = [task.sample(rng) for _ in range(n)]
+    torch.manual_seed(seed)
+    prompts = torch.tensor([encode(p) for p, _ in pairs])
+    with torch.no_grad():
+        seqs = sample(policy, prompts, task.max_new)
+        logp, ent = completion_logprobs(policy, seqs, task.prompt_len)
+    out = []
+    for (prompt, answer), s, lp, en in zip(pairs, seqs, logp, ent):
+        text = decode(s[task.prompt_len:])
+        reward, extra = task.reward(text, answer)
+        tokens = []
+        for tok, p, e in zip(s[task.prompt_len:].tolist(), lp.exp().tolist(), en.tolist()):
+            from rltestbed.core.lm.model import EOS, VOCAB
+            tokens.append({"text": "⏎" if tok == EOS else VOCAB[tok], "prob": p, "entropy": e})
+            if tok == EOS:
+                break
+        out.append({"prompt": prompt, "completion": text, "answer": answer, "reward": reward,
+                    "correct": bool(extra["accuracy"]), "tokens": tokens})
+    acc = sum(x["correct"] for x in out) / max(1, len(out))
+    explanation = (
+        f"{n} answers sampled at temperature 1 from {who}, each checked by the task's verifier. "
+        "The shade of each character is the probability the model gave it: training with "
+        "verifiable rewards concentrates probability on correct answers, so a sharpened model "
+        "shows mostly solid characters. The model sees only the prompt text, character by character."
+    )
+    return {"env": env_name, "agent": model["agent"] if model else "base", "seed": seed,
+            "render": {"source": "text", "error": None, "explanation": explanation},
+            "samples": out, "accuracy": acc, "trajectories": []}
+
+
 def run(body: Dict[str, Any]) -> Dict[str, Any]:
     """Play episodes and return trajectories. Raises RolloutError."""
     from rltestbed.core.agents import create_agent, list_agents
@@ -197,6 +248,8 @@ def run(body: Dict[str, Any]) -> Dict[str, Any]:
     if not env_name or env_name not in REGISTRY:
         raise RolloutError(404, f"unknown env '{env_name}'")
     spec = REGISTRY[env_name]["spec"]
+    if spec.category == "language":
+        return run_language(env_name, spec, model, 8 * episodes, seed)
     if not any(a["name"] == agent_name for a in list_agents()):
         raise RolloutError(422, f"unknown agent '{agent_name}'")
 

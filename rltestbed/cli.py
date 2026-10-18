@@ -227,9 +227,10 @@ def train(
     )
 
     update_run(run_id, status="running", started_at=time.time())
+    from rltestbed.core.runner import create_trainer
     from rltestbed.core.trainer import Trainer
 
-    trainer = Trainer(
+    trainer = create_trainer(
         run_id=run_id,
         run_dir=run_dir_for(run_id),
         env_name=env,
@@ -665,7 +666,8 @@ def train_worker(
     """Internal: executed by the job manager as a separate process."""
     from rltestbed.registry import get_run, update_run
     from rltestbed.config import run_dir as run_dir_for
-    from rltestbed.core.trainer import Trainer
+    from rltestbed.core.runner import create_trainer
+    from rltestbed.core.trainer import Trainer  # noqa: F401  (kept for _build_trainer signature)
 
     run = get_run(run_id)
     if not run:
@@ -709,7 +711,9 @@ def train_worker(
 
 
 def _build_trainer(Trainer, run_id, run, config, run_dir_for):
-    return Trainer(
+    from rltestbed.core.runner import create_trainer
+
+    return create_trainer(
         run_id=run_id,
         run_dir=run_dir_for(run_id),
         env_name=run["env"],

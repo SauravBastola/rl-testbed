@@ -585,6 +585,63 @@ for _pname, (_cls, _desc) in PROBES.items():
 
 
 # --------------------------------------------------------------------- #
+# Language tasks (RL fine-tuning of a tiny language model)
+# --------------------------------------------------------------------- #
+from rltestbed.core.lm.model import VOCAB as _LM_VOCAB
+from rltestbed.core.lm.tasks import TASKS as _LM_TASKS
+
+_LM_META = {
+    "lm_addition": dict(
+        description="Prompts like 37+45= with the three-digit sum as the answer. A verifier "
+        "checks the answer exactly: the setting of RL with verifiable rewards (RLVR).",
+        exercise="Compare GRPO with REINFORCE over three seeds: watch sampled accuracy rise "
+        "from about 0.3 and KL grow as the policy moves from the base model.",
+        advanced="Turn std normalisation off and use a token-level loss (the Dr. GRPO preset) "
+        "and compare learning speed."),
+    "lm_reverse": dict(
+        description="Reverse a five-letter word: abcde> → edcba. The base model already gets "
+        "most answers right, so RL mainly removes the remaining sampling errors.",
+        exercise="Train GRPO for 60 steps and watch entropy fall as the answers sharpen.",
+        advanced="Lower the sampling temperature and see how much less signal each group carries."),
+    "lm_sort": dict(
+        description="Sort six digits: 391042> → 012349. Exact-match reward from a verifier.",
+        exercise="Compare DPO (learning from pairs) with GRPO (learning from groups).",
+        advanced="Switch DPO to online pairs and compare with offline pairs from the base model."),
+    "lm_addition_hackable": dict(
+        description="Addition again, but scored by a flawed reward model that also pays 0.2 "
+        "per character. Rambling earns reward without being right: reward hacking.",
+        exercise="Run GRPO with KL 0 and with KL 0.5. Compare reward with the accuracy metric: "
+        "without enough KL, reward climbs to its maximum of 2.0 while accuracy falls to zero.",
+        advanced="Sweep the KL coefficient: the default 0.04 does not stop the hack here. Where "
+        "does honesty start winning?"),
+}
+for _name, _task in _LM_TASKS.items():
+    _m = _LM_META[_name]
+    _register(
+        EnvSpec(
+            name=_name, label=_task.label, category="language",
+            description=_m["description"], source="testbed builtin", url="",
+            tags=["language", "verifiable-reward", "llm"]
+            + (["reward-hacking"] if "hackable" in _name else []),
+            max_steps=_task.max_new, difficulty="medium", obs_type="tokens",
+            action_type="token", obs_dim=len(_LM_VOCAB), act_dim=len(_LM_VOCAB),
+            reward_desc="1 for an exactly correct answer, else 0" if "hackable" not in _name
+            else "correct (0 or 1) + 0.2 x answer length: a flawed reward model",
+            termination_desc="The model emits an end token or reaches the length limit.",
+            typical_episode_length=_task.answer_len + 1,
+            recommended_agents=["grpo", "lm_reinforce", "dpo"],
+            unsuitable_agents=[],
+            limitations=["A ~100k-parameter character model, not a real LLM: the algorithms "
+                         "are the real ones, the scale is not.",
+                         "The base model is pretrained once per task and cached."],
+            beginner_exercise=_m["exercise"], advanced_exercise=_m["advanced"],
+            requires=["torch"], lab="language",
+        ),
+        lambda t=_task: t,
+    )
+
+
+# --------------------------------------------------------------------- #
 # Custom env discovery
 # --------------------------------------------------------------------- #
 def discover_custom_envs(force: bool = False):

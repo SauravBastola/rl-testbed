@@ -909,6 +909,18 @@ def create_app(web_dist: Optional[Path] = None,
             raise HTTPException(404)
         episodes = body.episodes if body else 20
         from rltestbed.core.agents import create_agent
+        from rltestbed.core.envs import REGISTRY
+
+        spec = REGISTRY[m["env"]]["spec"]
+        if spec.category == "language":
+            # a language model is evaluated by sampling answers and verifying them
+            from rltestbed.rollout import run_language
+
+            out = run_language(m["env"], spec, m, n=max(1, episodes) * 10, seed=0)
+            rewards = [x["reward"] for x in out["samples"]]
+            return {"model_id": model_id, "env": m["env"], "episodes": len(rewards),
+                    "mean": float(np.mean(rewards)), "std": float(np.std(rewards)),
+                    "min": float(np.min(rewards)), "max": float(np.max(rewards))}
 
         env = make_env(m["env"])
         agent = create_agent(m["agent"], env.obs_dim, env.act_dim)

@@ -184,6 +184,41 @@ LABS: List[Dict[str, Any]] = [
              "why": "Connect Four needs planning several moves ahead."},
         ],
     },
+    {
+        "id": "language",
+        "label": "Language models",
+        "tagline": "RL fine-tuning of a tiny language model",
+        "description": (
+            "The techniques behind reasoning models such as DeepSeek-R1, at a scale that "
+            "runs on a laptop: a small pretrained transformer, tasks with verifiable rewards, "
+            "and the algorithms that fine-tune it: REINFORCE, GRPO and DPO, with supervised "
+            "fine-tuning as the baseline. A hackable reward shows why the KL penalty exists."
+        ),
+        "accent": "sky",
+        "icon": "text",
+        "match": {"categories": ["language"]},
+        "algorithms": ["grpo", "lm_reinforce", "dpo", "lm_sft"],
+        "metrics": ["reward", "mean_reward", "metric_accuracy", "metric_eval_accuracy",
+                    "metric_kl", "metric_entropy", "metric_zero_signal_groups", "metric_length"],
+        "visual": "text",
+        "curriculum": [
+            {"agent": "lm_sft", "env": "lm_addition", "episodes": 150,
+             "title": "The supervised baseline",
+             "why": "Fine-tuning on correct answers: what RL has to beat, and needs labels."},
+            {"agent": "grpo", "env": "lm_addition", "episodes": 150,
+             "title": "Learn from a verifier",
+             "why": "GRPO raises sampled accuracy with only a right/wrong signal."},
+            {"agent": "lm_reinforce", "env": "lm_addition", "episodes": 150,
+             "title": "One baseline for all",
+             "why": "REINFORCE uses one batch-mean baseline; compare its noise with GRPO."},
+            {"agent": "dpo", "env": "lm_sort", "episodes": 150,
+             "title": "Learn from preferences",
+             "why": "DPO improves from pairs of answers, with no reward in the loss."},
+            {"agent": "grpo", "env": "lm_addition_hackable", "episodes": 150,
+             "title": "Reward hacking",
+             "why": "A flawed reward model pays for length; watch reward and accuracy part ways."},
+        ],
+    },
 ]
 
 LAB_IDS = [lab["id"] for lab in LABS]

@@ -136,7 +136,9 @@ def client(tmp_path, monkeypatch):
 def test_labs_endpoint(client):
     labs = client.get("/api/labs").json()
     ids = [lab["id"] for lab in labs]
-    assert ids == ["foundations", "classic", "continuous", "perception", "multiagent"]
+    from rltestbed.labs import LAB_IDS
+
+    assert ids == LAB_IDS and {"foundations", "classic", "language"} <= set(ids)
     assert all("match" not in lab and lab["env_count"] > 0 for lab in labs)
 
 

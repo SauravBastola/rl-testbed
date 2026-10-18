@@ -156,7 +156,9 @@ def test_examples_parse_when_their_environments_are_installed(client):
 
     available = {e["name"] for e in list_envs() if e.get("available")}
     examples = client.get("/api/experiments/examples").json()
-    assert len(examples) == 5
+    from rltestbed.labs import LABS
+
+    assert len(examples) == len(LABS)
     for ex in examples:
         envs = {r["env"] for r in yaml.safe_load(ex["text"])["runs"]}
         if envs <= available:
