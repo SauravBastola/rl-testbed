@@ -32,6 +32,7 @@ import { useToast } from '../components/ui/Toast.jsx'
 import { ChartFrame, SMOOTHING } from '../components/charts/ChartFrame.jsx'
 import { Segmented } from '../components/ui/Segmented.jsx'
 import { CompatVerdict } from '../components/domain/CompatVerdict.jsx'
+import { SampleList } from '../components/domain/SampleList.jsx'
 import NotFound from './NotFound.jsx'
 
 function MetricChart({ history, metric, onMetric, metrics, smoothing, compact }) {
@@ -76,6 +77,36 @@ function LogPanel({ runId, live }) {
         </div>
       ))}
     </pre>
+  )
+}
+
+/** Latest evaluation answers of a language run (written by SequenceTrainer). */
+function SamplesPanel({ runId, live }) {
+  const q = useQuery({
+    queryKey: ['samples', runId],
+    queryFn: async () => {
+      const res = await fetch(api.artifactUrl(runId, 'samples.json'))
+      return res.ok ? res.json() : []
+    },
+    refetchInterval: live ? 4000 : false,
+  })
+  if (q.isLoading) return <SkeletonRows rows={4} />
+  if (!q.data?.length)
+    return (
+      <EmptyState
+        compact
+        icon={FileText}
+        title="No samples yet"
+        description="They appear after the first evaluation."
+      />
+    )
+  return (
+    <div className="space-y-2">
+      <p className="text-body-s text-muted">
+        Answers to held-out prompts at the latest evaluation, sampled at temperature 1.
+      </p>
+      <SampleList samples={q.data} showProbs={false} />
+    </div>
   )
 }
 
@@ -419,7 +450,8 @@ export default function RunDetail() {
           value={tab}
           onChange={setTab}
           tabs={[
-            { value: 'episodes', label: 'Episodes', count: hist.length },
+            ...(env?.category === 'language' ? [{ value: 'samples', label: 'Samples' }] : []),
+            { value: 'episodes', label: env?.category === 'language' ? 'Steps' : 'Episodes', count: hist.length },
             { value: 'config', label: 'Configuration' },
             { value: 'artifacts', label: 'Artifacts' },
             { value: 'log', label: 'Log' },
@@ -524,6 +556,7 @@ export default function RunDetail() {
               )}
             </div>
           )}
+          {tab === 'samples' && <SamplesPanel runId={r.id} live={live} />}
           {tab === 'artifacts' && (
             <div className="space-y-3">
               <a href={api.historyCsvUrl(r.id)} download className={buttonClass({ size: 'sm' })}>

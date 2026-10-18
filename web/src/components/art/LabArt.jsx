@@ -262,7 +262,63 @@ function ProbeSpecimen() {
   )
 }
 
+function TextSpecimen() {
+  // A prompt and a sampled answer, each character shaded by its probability.
+  const rows = [
+    {
+      prompt: '37+45=',
+      answer: [
+        ['0', 0.95],
+        ['8', 0.9],
+        ['2', 0.6],
+      ],
+      ok: true,
+    },
+    {
+      prompt: '12+09=',
+      answer: [
+        ['0', 0.97],
+        ['2', 0.5],
+        ['1', 0.85],
+      ],
+      ok: true,
+    },
+    {
+      prompt: '58+76=',
+      answer: [
+        ['1', 0.9],
+        ['3', 0.35],
+        ['3', 0.55],
+      ],
+      ok: false,
+    },
+  ]
+  return (
+    <svg viewBox="0 0 180 160" className="h-full w-full" aria-hidden>
+      {rows.map((r, i) => (
+        <g key={i} transform={`translate(10 ${24 + i * 44})`}>
+          <text x="0" y="16" className="num" fontSize="15" fill="rgb(var(--text-muted))">
+            {r.prompt}
+          </text>
+          {r.answer.map(([c, p], k) => (
+            <g key={k} transform={`translate(${78 + k * 22} 0)`}>
+              <rect width="18" height="22" rx="4" fill="rgb(var(--accent))" fillOpacity={p * 0.55} />
+              <text x="9" y="16" textAnchor="middle" className="num" fontSize="14" fill="rgb(var(--text))">
+                {c}
+              </text>
+            </g>
+          ))}
+          <text x="150" y="16" fontSize="14" fill={r.ok ? 'rgb(var(--success))' : 'rgb(var(--danger))'}>
+            {r.ok ? '✓' : '✗'}
+          </text>
+        </g>
+      ))}
+    </svg>
+  )
+}
+
 const SPECIMENS = {
+  text: TextSpecimen,
   grid: GridSpecimen,
   phase: PhaseSpecimen,
   torque: TorqueSpecimen,

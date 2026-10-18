@@ -339,6 +339,9 @@
   [data-lab='multiagent'] {
     --accent: var(--hue-lime);
   }
+  [data-lab='language'] {
+    --accent: var(--hue-sky);
+  }
   :root,
   [data-theme],
   [data-lab] {

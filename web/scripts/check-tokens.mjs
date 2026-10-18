@@ -62,7 +62,7 @@ const ratio = (a, b) => {
   return (x + 0.05) / (y + 0.05)
 }
 
-const LABS = ['violet', 'cyan', 'amber', 'rose', 'lime']
+const LABS = ['violet', 'cyan', 'amber', 'rose', 'lime', 'sky']
 for (const [name, vars] of Object.entries(themes)) {
   console.log(`Contrast — ${name}`)
   const c = (k) => resolve(vars, vars[k])
@@ -87,6 +87,13 @@ for (const [name, vars] of Object.entries(themes)) {
   }
   if (worst >= 1) console.log(`  ✓ ${checks.length} pairs pass (tightest margin ${(worst * 100 - 100).toFixed(0)}% above minimum)`)
 }
+
+// ------------------------------------------------- every lab has an accent
+const labIds = [...readFileSync('../rltestbed/labs.py', 'utf8').matchAll(/"id": "([\w-]+)"/g)].map((m) => m[1])
+const missingAccent = labIds.filter((id) => !css.includes(`[data-lab='${id}']`))
+console.log(`Lab accents for ${labIds.length} labs`)
+if (missingAccent.length) fail(`no [data-lab] accent rule in styles.css for: ${missingAccent.join(', ')}`)
+else console.log('  ✓ all present')
 
 if (failed) {
   console.error('\nToken check failed.')

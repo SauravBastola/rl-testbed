@@ -45,6 +45,7 @@ const ROUTES = [
   ['/sweeps/s52el9r0', /What each parameter does/],
   ['/experiments', /Validated by the same rules/],
   ['/settings', /Night theme/],
+  ['/lab/language', /RL fine-tuning of a tiny language model/],
   ['/no-such-page', /Page not found/],
 ]
 

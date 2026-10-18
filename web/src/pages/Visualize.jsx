@@ -16,6 +16,7 @@ import { Segmented } from '../components/ui/Segmented.jsx'
 import { Badge } from '../components/ui/Badge.jsx'
 import { LineChart } from '../components/charts/LineChart.jsx'
 import { EnvSchematic } from '../components/domain/EnvSchematic.jsx'
+import { SampleList } from '../components/domain/SampleList.jsx'
 import { spacesSummary } from '../components/domain/CatalogCards.jsx'
 
 const SPEEDS = [
@@ -500,7 +501,21 @@ export default function Visualize() {
           <Skeleton className="h-96" />
         </div>
       )}
-      {!roll.isPending && !trajs.length && !roll.error && (
+      {!roll.isPending && data?.samples && (
+        <>
+          <Notice tone="info" icon={Info} title="What you're seeing">
+            {data.render.explanation}
+          </Notice>
+          <Card>
+            <CardHeader
+              title="Sampled answers"
+              description={`${data.samples.length} answers, ${Math.round(data.accuracy * 100)}% correct. Hover a character for its probability.`}
+            />
+            <SampleList samples={data.samples} />
+          </Card>
+        </>
+      )}
+      {!roll.isPending && !trajs.length && !data?.samples && !roll.error && (
         <EmptyState
           icon={Eye}
           title="Choose an environment and press Play episode"
