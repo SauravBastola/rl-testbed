@@ -20,8 +20,8 @@ The catalogue is organised into **labs**, one per shape of learning problem:
 Plus a global **Diagnostics** page: six probe environments with known answers
 (five discrete, one continuous), shown as a pass/fail matrix across every algorithm.
 
-**Catalogue:** 49 environments (43 for training, 6 diagnostic probes) and 36
-algorithms (28 trainable, 8 planned, each with the reason it is not trainable
+**Catalogue:** 49 environments (43 for training, 6 diagnostic probes) and 37
+algorithms (29 trainable, 8 planned, each with the reason it is not trainable
 yet). Environments whose optional dependency is missing are listed as
 unavailable with an install command, rather than hidden.
 
@@ -101,10 +101,10 @@ rltestbed export <run, sweep or seed-group id>[,...] -o my-experiment.yaml
 - **World models:** PETS plans with a learned ensemble at every step; Dreamer-lite
   trains an actor-critic inside the model. The run page's Imagination tab overlays
   the model's open-loop prediction on what really happened.
-- **Learning path:** 9 modules, 21 experiments, from a random baseline to reading
+- **Learning path:** 9 modules, 23 experiments, from a random baseline to reading
   results across seeds. Each step teaches named concepts, runs in one click, asks
   a question, and marks itself done from your runs.
-- **Glossary:** 81 terms by topic, with explanations, formulas, related terms and
+- **Glossary:** 85 terms by topic, with explanations, formulas, related terms and
   links to where each idea appears.
 - **Night / Day** in the sidebar; **Settings** chooses each mode's theme
   (Night: Midnight, Graphite, Abyss, Obsidian. Day: Daylight, Paper, High contrast).
@@ -182,7 +182,7 @@ and `docs.math`.
 ```bash
 pip install -r requirements-dev.txt  # adds pytest
 make help                            # list common tasks; `make check` runs what CI runs
-python -m pytest tests -q            # 134 tests
+python -m pytest tests -q            # 145 tests
 cd web
 npm run dev                          # :5173, proxies /api and /ws to :8000
 npm run lint                         # ESLint, including a no-hex-colour rule
@@ -191,6 +191,14 @@ npm run check:tokens                 # hex scan + WCAG contrast for all themes
 npm run format                       # Prettier
 npm run build                        # the server serves web/dist
 ```
+
+## Upgrade note (v3.7): re-run continuous-control results
+
+Before v3.7, SAC, TD3 and DDPG stored observations in their replay buffers
+normalised by the statistics of the moment they were stored, which left early
+samples inconsistent with later ones. On Pendulum, SAC did not learn within 40
+episodes; with the fix it reaches about -130. Results from these algorithms
+made with earlier versions understated them and are worth re-running.
 
 ## Security
 

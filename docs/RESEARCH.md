@@ -27,8 +27,9 @@ transformer, verifiable tasks, SFT, REINFORCE, GRPO (with Dr. GRPO switches)
 and DPO, plus a hackable reward that demonstrates reward hacking and the KL
 anchor. Entropy collapse is directly visible on GRPO runs.
 
-**Next.** A DAPO preset: asymmetric clipping and skipping zero-signal groups
-(the `zero_signal_groups` metric already measures how much signal is wasted).
+**DAPO (v3.7).** A preset with clip-higher, dynamic sampling, a token-level loss
+and no KL. On addition it is ahead early but ends level with GRPO, and
+clip-higher does not visibly slow entropy collapse at this scale.
 
 ## 2. World models and model-based RL
 
@@ -61,9 +62,15 @@ scale to higher ratios [6]. SimBa shows that an architecture with observation
 normalisation and a residual, layer-normalised network improves many
 algorithms simply by being scaled up [7].
 
-**Next.** A network-architecture option (standard MLP vs SimBa-style) shared by
-SAC, TD3 and PPO, and CrossQ as an algorithm. Both are small changes with
-visible effects on MuJoCo curves.
+**In the testbed (v3.7).** CrossQ, and a SimBa network option for SAC and TD3.
+On Pendulum (one seed, 40 episodes) CrossQ reached a best evaluation of -73 and
+SimBa learned at about SAC's pace; neither shows a clear advantage at this
+scale, and both are slower per episode on a CPU. Their claimed benefits are on
+harder MuJoCo and DeepMind Control tasks with larger networks.
+
+Building them exposed a long-standing bug: the off-policy agents normalised
+observations at storage time. Fixing it took SAC on Pendulum from no learning
+in 40 episodes to about -130.
 
 ## 4. Other directions worth a lab or module later
 

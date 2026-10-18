@@ -293,6 +293,19 @@ multiply, about 2.5x faster than looping over member networks.
 model trains on it, by feeding the real start state and real actions and never
 the real states again: the same open-loop setting the planner relies on.
 
+## v3.7: measure, then claim
+
+Every new method this release (DAPO, CrossQ, SimBa) was benchmarked against
+the method it refines before its description was written, and the docs report
+what was measured, including "no clear gain at this scale". Benchmarking is
+also what exposed the observation-normalisation bug: three different
+algorithms failing in the same way pointed at the code they shared.
+
+**Store raw, normalise when used.** Replay buffers hold raw observations;
+statistics update once per real transition; batches and actions are
+normalised with the current statistics. A regression test checks that an early
+transition sampled later is normalised by today's statistics.
+
 ## Component conventions
 
 The conventions asked for one component per file. Primitives are instead grouped by

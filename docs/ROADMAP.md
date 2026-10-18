@@ -36,8 +36,8 @@ in the same commit that finishes an item.
 - [x] **World models.** PETS (planning with a learned ensemble) and Dreamer-lite
   (learning in imagination), an imagined-vs-real view, and a learning-path module.
 - [ ] **TD-MPC-style agent**: latent planning with a learned terminal value.
-- [ ] **DAPO preset** for GRPO: clip-higher and skipping zero-signal groups.
-- [ ] **CrossQ and a SimBa-style network option** for SAC, TD3 and PPO.
+- [x] **DAPO preset** for GRPO: clip-higher and dynamic sampling.
+- [x] **CrossQ and a SimBa network option** for SAC and TD3.
 
 ## v3.3: breadth of methods
 
