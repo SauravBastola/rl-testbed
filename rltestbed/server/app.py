@@ -254,6 +254,13 @@ def create_app(web_dist: Optional[Path] = None,
     def api_learning_path():
         return LEARNING_PATH
 
+    @app.get("/api/curriculum")
+    def api_curriculum():
+        """Learning-path modules with each step's live status from the user's runs."""
+        from rltestbed import curriculum
+
+        return curriculum.with_status(list_runs(limit=5000), _env_index())
+
     @app.get("/api/glossary")
     def api_glossary():
         return GLOSSARY
