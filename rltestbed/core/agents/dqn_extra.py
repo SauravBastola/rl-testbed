@@ -121,7 +121,8 @@ class PrioritizedDQNAgent(_BaseDQNAgent):
         s2 = self._to_tensor(next_obs).numpy()
         n = len(self.buffer)
         top = self.priorities[:n].max() if n else 1.0
-        idx = self.buffer.append((s, int(action), float(reward), s2, bool(done)))
+        idx = self.buffer.append((s, int(action), float(reward), s2,
+                                   bool(done) and not getattr(self, "last_step_truncated", False)))
         self.priorities[idx] = max(top, 1e-6)
         self.total_steps += 1
         self.epsilon = max(

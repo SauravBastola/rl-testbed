@@ -113,11 +113,12 @@ class RunningNormalizer:
         self._m2 += delta * (x - self._mean)
 
     def normalize(self, x) -> np.ndarray:
+        """Normalise one observation or a batch (shape is preserved)."""
+        x = np.asarray(x, dtype=np.float64)
         if self.count < 2:
-            return np.asarray(x, dtype=np.float32).reshape(-1)
+            return x.astype(np.float32)
         std = np.sqrt(self._m2 / self.count) + self.eps
-        z = (np.asarray(x, dtype=np.float64).reshape(-1) - self._mean) / std
-        return np.clip(z, -self.clip, self.clip).astype(np.float32)
+        return np.clip((x - self._mean) / std, -self.clip, self.clip).astype(np.float32)
 
     def state_dict(self) -> Dict[str, Any]:
         return {
@@ -152,14 +153,47 @@ def _mlp(sizes: List[int], output_activation=None) -> nn.Module:
     return nn.Sequential(*layers)
 
 
+class SimBaBlock(nn.Module):
+    """Pre-norm residual block with a 4x inverted bottleneck (SimBa, Lee et al. 2025)."""
+
+    def __init__(self, width: int):
+        super().__init__()
+        self.ln = nn.LayerNorm(width)
+        self.fc1 = nn.Linear(width, 4 * width)
+        self.fc2 = nn.Linear(4 * width, width)
+
+    def forward(self, x):
+        return x + self.fc2(F.relu(self.fc1(self.ln(x))))
+
+
+def _trunk(in_dim: int, hidden: int, n_hidden: int, network: str = "mlp") -> nn.Module:
+    """The shared body of actors and critics.
+
+    ``mlp``: Linear+ReLU layers (the classic choice). ``simba``: a linear
+    embedding, residual pre-norm blocks and a final LayerNorm. SimBa's argument
+    is that this simplicity bias lets networks grow without overfitting, so
+    scaling parameters improves sample efficiency (observation normalisation,
+    its third part, is the agents' normalize_obs).
+    """
+    if network == "simba":
+        return nn.Sequential(nn.Linear(in_dim, hidden),
+                             *[SimBaBlock(hidden) for _ in range(max(1, n_hidden - 1))],
+                             nn.LayerNorm(hidden))
+    return _mlp([in_dim] + [hidden] * n_hidden, output_activation=nn.ReLU)
+
+
 class DeterministicActor(nn.Module):
     """Maps observations to a deterministic action in ``[-1, 1]`` (tanh)."""
 
     def __init__(self, obs_dim: int, act_dim: int, hidden_size: int = 256,
-                 n_hidden: int = 2):
+                 n_hidden: int = 2, network: str = "mlp"):
         super().__init__()
-        sizes = [obs_dim] + [hidden_size] * n_hidden + [act_dim]
-        self.net = _mlp(sizes, output_activation=nn.Tanh)
+        if network == "mlp":  # unchanged layout, so old checkpoints still load
+            self.net = _mlp([obs_dim] + [hidden_size] * n_hidden + [act_dim],
+                            output_activation=nn.Tanh)
+        else:
+            self.net = nn.Sequential(_trunk(obs_dim, hidden_size, n_hidden, network),
+                                     nn.Linear(hidden_size, act_dim), nn.Tanh())
 
     def forward(self, obs: torch.Tensor) -> torch.Tensor:
         return self.net(obs)
@@ -169,10 +203,13 @@ class QCritic(nn.Module):
     """Q(s, a) with the action concatenated to the observation."""
 
     def __init__(self, obs_dim: int, act_dim: int, hidden_size: int = 256,
-                 n_hidden: int = 2):
+                 n_hidden: int = 2, network: str = "mlp"):
         super().__init__()
-        sizes = [obs_dim + act_dim] + [hidden_size] * n_hidden + [1]
-        self.net = _mlp(sizes)
+        if network == "mlp":
+            self.net = _mlp([obs_dim + act_dim] + [hidden_size] * n_hidden + [1])
+        else:
+            self.net = nn.Sequential(_trunk(obs_dim + act_dim, hidden_size, n_hidden, network),
+                                     nn.Linear(hidden_size, 1))
 
     def forward(self, obs: torch.Tensor, action: torch.Tensor) -> torch.Tensor:
         return self.net(torch.cat([obs, action], dim=-1)).squeeze(-1)
@@ -182,10 +219,10 @@ class TwinQCritic(nn.Module):
     """Two independent critics; TD3/SAC take the min to curb overestimation."""
 
     def __init__(self, obs_dim: int, act_dim: int, hidden_size: int = 256,
-                 n_hidden: int = 2):
+                 n_hidden: int = 2, network: str = "mlp"):
         super().__init__()
-        self.q1 = QCritic(obs_dim, act_dim, hidden_size, n_hidden)
-        self.q2 = QCritic(obs_dim, act_dim, hidden_size, n_hidden)
+        self.q1 = QCritic(obs_dim, act_dim, hidden_size, n_hidden, network)
+        self.q2 = QCritic(obs_dim, act_dim, hidden_size, n_hidden, network)
 
     def forward(self, obs, action):
         return self.q1(obs, action), self.q2(obs, action)
@@ -206,9 +243,12 @@ class GaussianActor(nn.Module):
     LOG_STD_MAX = 2.0
 
     def __init__(self, obs_dim: int, act_dim: int, hidden_size: int = 256,
-                 n_hidden: int = 2):
+                 n_hidden: int = 2, network: str = "mlp"):
         super().__init__()
-        self.trunk = _mlp([obs_dim] + [hidden_size] * n_hidden)
+        if network == "mlp":  # original layout: _mlp leaves the last layer linear
+            self.trunk = _mlp([obs_dim] + [hidden_size] * n_hidden)
+        else:
+            self.trunk = _trunk(obs_dim, hidden_size, n_hidden, network)
         last = hidden_size
         self.mu = nn.Linear(last, act_dim)
         self.log_std = nn.Linear(last, act_dim)
@@ -318,15 +358,14 @@ class _ContinuousBase(Agent):
         self._actor_losses: list = []
 
     # -- observation / action marshalling -------------------------------- #
+    @staticmethod
+    def _raw(obs) -> np.ndarray:
+        return np.asarray(obs["obs"] if isinstance(obs, dict) else obs, dtype=np.float32).reshape(-1)
+
     def _obs(self, obs) -> np.ndarray:
-        arr = np.asarray(
-            obs["obs"] if isinstance(obs, dict) else obs, dtype=np.float32
-        ).reshape(-1)
-        if self.normalizer is not None:
-            if self.TRAIN:
-                self.normalizer.update(arr)
-            arr = self.normalizer.normalize(arr)
-        return arr
+        """The observation as the networks see it: normalised by the *current* statistics."""
+        arr = self._raw(obs)
+        return self.normalizer.normalize(arr) if self.normalizer is not None else arr
 
     def _to_env_action(self, a_norm: np.ndarray) -> np.ndarray:
         """Map a normalised ``[-1, 1]`` action onto the environment's range."""
@@ -358,12 +397,23 @@ class _ContinuousBase(Agent):
         self._progress = float(np.clip(progress, 0.0, 1.0))
 
     def update(self, obs, action, reward, next_obs, done):
-        s = self._obs(obs)
-        s2 = self._obs(next_obs)
+        # Store RAW observations and normalise when sampling. Before v3.7 the
+        # buffer held observations normalised with the statistics of the moment
+        # they were stored; the first ones (statistics from a handful of steps)
+        # stayed in the buffer inconsistent with everything after, and SAC, TD3,
+        # DDPG and CrossQ failed to learn Pendulum within 40 episodes.
+        s = self._raw(obs)
+        s2 = self._raw(next_obs)
+        if self.normalizer is not None and self.TRAIN:
+            if self.normalizer.count == 0:
+                self.normalizer.update(s)
+            self.normalizer.update(s2)
         a = np.clip(self._to_norm_action(action), -1.0, 1.0)
         # Do not bootstrap past a true terminal state; a truncated episode
         # (time-limit) should still bootstrap.
-        terminal = bool(done) if not isinstance(done, np.ndarray) else bool(done)
+        # The trainer sets last_step_truncated; before it existed, every time
+        # limit (e.g. Pendulum's 200 steps) was stored as a true terminal.
+        terminal = bool(done) and not getattr(self, "last_step_truncated", False)
         self.buffer.add(s, a, float(reward), s2, terminal)
         self.total_steps += 1
 
@@ -394,6 +444,8 @@ class _ContinuousBase(Agent):
 
     def _sample_batch(self):
         obs, act, rew, next_obs, done = self.buffer.sample(self.batch_size)
+        if self.normalizer is not None:
+            obs, next_obs = self.normalizer.normalize(obs), self.normalizer.normalize(next_obs)
         return (
             self._tensor(obs),
             self._tensor(act),
@@ -669,6 +721,11 @@ TD3_PARAMS = _COMMON_PARAMS + [
     ParamSpec("noise_clip", "Target noise clip", 0.5, "float",
               "Target smoothing noise is clipped to +/- this value.",
               min=0.0, max=2.0, advanced=True),
+    ParamSpec("network", "Network", "mlp", "choice",
+              "mlp: ReLU layers. simba: residual pre-norm blocks with LayerNorm "
+              "(Lee et al., 2025), which keep improving as they get wider. At the same "
+              "width SimBa has about 8x the parameters, so it is slower on a CPU.",
+              choices=["mlp", "simba"], advanced=True),
 ]
 
 TD3_PRESETS = [
@@ -784,12 +841,13 @@ class TD3Agent(_ContinuousBase):
         super().__init__(obs_dim, act_dim, params, device)
         p = self.params
         hidden = int(p["hidden_size"])
-        self.actor = DeterministicActor(obs_dim, act_dim, hidden).to(self.dev)
-        self.actor_target = DeterministicActor(obs_dim, act_dim, hidden).to(self.dev)
+        net = p.get("network", "mlp")
+        self.actor = DeterministicActor(obs_dim, act_dim, hidden, network=net).to(self.dev)
+        self.actor_target = DeterministicActor(obs_dim, act_dim, hidden, network=net).to(self.dev)
         self.actor_target.load_state_dict(self.actor.state_dict())
 
-        self.critic = TwinQCritic(obs_dim, act_dim, hidden).to(self.dev)
-        self.critic_target = TwinQCritic(obs_dim, act_dim, hidden).to(self.dev)
+        self.critic = TwinQCritic(obs_dim, act_dim, hidden, network=net).to(self.dev)
+        self.critic_target = TwinQCritic(obs_dim, act_dim, hidden, network=net).to(self.dev)
         self.critic_target.load_state_dict(self.critic.state_dict())
 
         self.actor_optim = torch.optim.Adam(self.actor.parameters(), lr=p["lr"])
@@ -889,6 +947,11 @@ SAC_PARAMS = _COMMON_PARAMS + [
     ParamSpec("alpha_lr", "Temperature learning rate", 3e-4, "float",
               "Adam learning rate for the entropy temperature.",
               min=1e-6, max=1.0, advanced=True),
+    ParamSpec("network", "Network", "mlp", "choice",
+              "mlp: ReLU layers. simba: residual pre-norm blocks with LayerNorm "
+              "(Lee et al., 2025), which keep improving as they get wider. At the same "
+              "width SimBa has about 8x the parameters, so it is slower on a CPU.",
+              choices=["mlp", "simba"], advanced=True),
 ]
 
 SAC_PRESETS = [
@@ -1019,9 +1082,10 @@ class SACAgent(_ContinuousBase):
         p = self.params
         hidden = int(p["hidden_size"])
 
-        self.actor = GaussianActor(obs_dim, act_dim, hidden).to(self.dev)
-        self.critic = TwinQCritic(obs_dim, act_dim, hidden).to(self.dev)
-        self.critic_target = TwinQCritic(obs_dim, act_dim, hidden).to(self.dev)
+        net = p.get("network", "mlp")
+        self.actor = GaussianActor(obs_dim, act_dim, hidden, network=net).to(self.dev)
+        self.critic = TwinQCritic(obs_dim, act_dim, hidden, network=net).to(self.dev)
+        self.critic_target = TwinQCritic(obs_dim, act_dim, hidden, network=net).to(self.dev)
         self.critic_target.load_state_dict(self.critic.state_dict())
 
         self.actor_optim = torch.optim.Adam(self.actor.parameters(), lr=p["lr"])

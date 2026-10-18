@@ -21,6 +21,7 @@ from .tabular_extra import (
 from .dqn_extra import C51Agent, PrioritizedDQNAgent
 from .ppo_continuous import GaussianPPOAgent
 from .world_models import DreamerLiteAgent, PETSAgent
+from .crossq import CrossQAgent
 from rltestbed.core.lm.agents import LM_AGENTS
 
 AGENT_REGISTRY: Dict[str, type] = {
@@ -44,6 +45,7 @@ AGENT_REGISTRY: Dict[str, type] = {
     "a2c": A2CAgent,
     "ppo": PPOAgent,
     "ppo_continuous": GaussianPPOAgent,
+    "crossq": CrossQAgent,
     # world models
     "pets": PETSAgent,
     "dreamer_lite": DreamerLiteAgent,

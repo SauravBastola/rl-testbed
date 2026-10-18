@@ -244,7 +244,8 @@ class _BaseDQNAgent(Agent):
     def update(self, obs, action, reward, next_obs, done):
         s = self._to_tensor(obs).numpy()
         s2 = self._to_tensor(next_obs).numpy()
-        self.buffer.append((s, int(action), float(reward), s2, bool(done)))
+        self.buffer.append((s, int(action), float(reward), s2,
+                                   bool(done) and not getattr(self, "last_step_truncated", False)))
         self.total_steps += 1
         self.epsilon = max(
             self._eps_min,
