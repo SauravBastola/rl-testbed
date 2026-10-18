@@ -141,6 +141,8 @@ and `docs.math`.
 ## Development
 
 ```bash
+pip install -r requirements-dev.txt  # adds pytest
+make help                            # list common tasks; `make check` runs what CI runs
 python -m pytest tests -q            # 42 tests
 cd web
 npm run dev                          # :5173, proxies /api and /ws to :8000
@@ -161,5 +163,7 @@ npm run build                        # the server serves web/dist
   Self-play is planned.
 - Stopping a run finishes the current episode and writes a checkpoint; stopped,
   failed and interrupted runs can be restarted.
+- Contributing and the patch workflow: [CONTRIBUTING.md](CONTRIBUTING.md).
+  What is planned next: [docs/ROADMAP.md](docs/ROADMAP.md).
 - Further reference: [docs/ALGORITHMS.md](docs/ALGORITHMS.md),
   [docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md), [docs/MUJOCO.md](docs/MUJOCO.md).
