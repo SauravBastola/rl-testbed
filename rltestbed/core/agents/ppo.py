@@ -165,6 +165,19 @@ class PPOAgent(Agent):
         self.kls = deque(maxlen=2000)
         self._updates = 0
 
+    #: dtype of stored actions; the Gaussian subclass stores float vectors
+    _ACT_DTYPE = np.int64
+
+    def _evaluate(self, obs, acts, masks):
+        """Log-prob of `acts`, mean entropy, and values for a minibatch.
+
+        The only part of the update that depends on the action distribution, so
+        subclasses with a different policy head override just this.
+        """
+        logits, values = self.net(obs)
+        dist = self._dist(logits, masks)
+        return dist.log_prob(acts), dist.entropy().mean(), values
+
     # ------------------------------------------------------------------ #
     def _dist(self, logits, mask=None):
         if mask is not None:
@@ -235,7 +248,7 @@ class PPOAgent(Agent):
         dev = torch.device(self.device)
         adv, returns = self._compute_gae()
         obs = np.asarray(self._obs_buf, dtype=np.float32)
-        acts = np.asarray(self._act_buf, dtype=np.int64)
+        acts = np.asarray(self._act_buf, dtype=self._ACT_DTYPE)
         old_logp = np.asarray(self._logp_buf, dtype=np.float32)
 
         obs_t = torch.as_tensor(obs, device=dev)
@@ -259,10 +272,9 @@ class PPOAgent(Agent):
                 mb = idx[start: start + self.minibatch]
                 if len(mb) < 4:
                     continue
-                logits, values = self.net(obs_t[mb])
-                dist = self._dist(logits, masks_t[mb] if masks_t is not None else None)
-                new_logp = dist.log_prob(acts_t[mb])
-                entropy = dist.entropy().mean()
+                new_logp, entropy, values = self._evaluate(
+                    obs_t[mb], acts_t[mb], masks_t[mb] if masks_t is not None else None
+                )
 
                 ratio = (new_logp - old_logp_t[mb]).exp()
                 mb_adv = adv_norm[mb]

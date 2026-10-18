@@ -1059,6 +1059,10 @@ class SACAgent(_ContinuousBase):
         # --- critic --------------------------------------------------- #
         with torch.no_grad():
             next_action, next_logp = self.actor.sample(next_obs)
+            # sample() returns log-probs shaped (B, 1) while the critics return
+            # (B,). Without the squeeze the target broadcast to (B, B) and every
+            # Q-value was regressed toward the batch-average target.
+            next_logp = next_logp.squeeze(-1)
             q1_t, q2_t = self.critic_target(next_obs, next_action)
             min_q_t = torch.min(q1_t, q2_t)
             y = rew + self.gamma * (1.0 - done) * (min_q_t - self.alpha * next_logp)
@@ -1072,6 +1076,7 @@ class SACAgent(_ContinuousBase):
 
         # --- actor ---------------------------------------------------- #
         new_action, logp = self.actor.sample(obs)
+        logp = logp.squeeze(-1)
         q1_new, q2_new = self.critic(obs, new_action)
         min_q_new = torch.min(q1_new, q2_new)
         actor_loss = (self.alpha * logp - min_q_new).mean()

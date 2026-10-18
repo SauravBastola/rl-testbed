@@ -6,6 +6,15 @@ this table, so nothing else needs to reference it.
 """
 
 THEORY = {
+    'ppo_continuous': (
+        '**Origin:** Schulman et al. 2017, with a Gaussian policy as in their MuJoCo experiments.\n\n'
+        '**Policy:** $\\pi_\\theta(a|s)=\\mathcal{N}(\\mu_\\theta(s),\\,\\mathrm{diag}(\\sigma^2))$ '
+        'with $\\log\\sigma$ a free parameter, and $\\log\\pi(a|s)=\\sum_i \\log \\mathcal{N}(a_i;\\mu_i,\\sigma_i)$.\n\n'
+        '**Objective:** $L^{CLIP}=\\mathbb{E}_t[\\min(r_t\\hat A_t,\\ \\mathrm{clip}(r_t,1-\\epsilon,1+\\epsilon)\\hat A_t)]$ '
+        'with $r_t=\\pi_\\theta(a_t|s_t)/\\pi_{old}(a_t|s_t)$ and $\\hat A_t$ from GAE($\\lambda$).\n\n'
+        '**Bounds:** sampling happens in $[-1,1]$; the environment receives '
+        '$a_{env}=l+(\\mathrm{clip}(a,-1,1)+1)(h-l)/2$, and the unclipped $a$ is kept for $\\log\\pi$.\n'
+    ),
     'random': (
         '**Origin:** Baseline (Sutton & Barto, 2018). No learning — uniform $\\pi(a|s)=1/|A|$.\n'
         '\n'

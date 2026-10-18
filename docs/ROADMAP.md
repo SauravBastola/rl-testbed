@@ -12,10 +12,10 @@ in the same commit that finishes an item.
   mean final return ± std, and the best configuration opens pre-filled in New run.
 - [ ] **Per-parameter effect view.** For every swept parameter, mean result per
   value, so "which knob mattered" is visible without reading a table.
-- [ ] **Continuous-action PPO.** Gaussian policy; runs on Pendulum and MuJoCo.
-- [ ] **Continuous probe.** A one-step continuous-action diagnostic, so SAC, TD3,
+- [x] **Continuous-action PPO.** Gaussian policy; runs on Pendulum and MuJoCo.
+- [x] **Continuous probe.** A one-step continuous-action diagnostic, so SAC, TD3,
   DDPG and Gaussian PPO appear in the Diagnostics matrix.
-- [ ] **CI and task runner.** GitHub Actions runs the same checks as `make check`.
+- [x] **CI and task runner.** GitHub Actions runs the same checks as `make check`.
 
 ## v3.2: richer experiments
 

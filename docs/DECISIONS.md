@@ -146,8 +146,20 @@ an install hint instead of disappearing.
 10. A2C and REINFORCE normalised advantages within each episode. On short episodes
     that maps any two advantages to about ±0.7 and discards the value baseline.
     Normalisation now needs at least 8 steps.
+11. (v3.1) SAC's actor returned log-probabilities shaped (B, 1) while the critics
+    return (B,). The critic target broadcast to (B, B), regressing every Q-value
+    toward the batch-average target. Found when the new continuous probe ran
+    with warnings visible.
 
 The audit was also wrong that runs had no tags: `tags_json` already existed.
+
+## v3.1: continuous diagnostics and Gaussian PPO
+
+Every probe was discrete, so SAC, TD3 and DDPG never appeared in the Diagnostics
+matrix. Probe 6 is a one-step continuous task (reward 1 - |a - 0.5|) that all four
+continuous learners must solve. Gaussian PPO subclasses PPO and overrides only the
+`_evaluate` hook, the network and action sampling, so the GAE and clipping logic
+exists once.
 
 ## Component conventions
 

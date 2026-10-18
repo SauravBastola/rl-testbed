@@ -207,7 +207,7 @@ def test_run_patch_and_artifact_download(client):
 
 def test_diagnostics_matrix_and_system(client):
     diag = client.get("/api/diagnostics").json()
-    assert len(diag["benchmarks"]) == 5
+    assert len(diag["benchmarks"]) == 6
     cell = diag["benchmarks"][0]["cells"]["dqn"]
     assert cell["verdict"] == "untested" and cell["expected"]
     sysinfo = client.get("/api/system").json()

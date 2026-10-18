@@ -68,6 +68,20 @@ BENCHMARKS: List[Dict[str, Any]] = [
         should_pass=["dqn", "dqn_double", "q_learning", "ppo", "ucb", "thompson", "double_q"],
         how_to="Train DQN 300 episodes on probe5 with default epsilon schedule.",
     ),
+    dict(
+        id="continuous",
+        probe="probe6", pass_threshold=0.9, episodes=300,
+        title="Continuous control sanity",
+        family="continuous",
+        tests="One step, one continuous action in [-1, 1]; reward 1 - |a - 0.5|.",
+        why="The only probe continuous-action learners can run. Checks action "
+        "scaling, bound handling and that the policy moves toward higher reward.",
+        expected="The greedy action settles within 0.1 of 0.5, so evaluation reward exceeds 0.9.",
+        failure_suggests="Actions not rescaled to the bounds, a squashing bug, or "
+        "exploration noise left on during evaluation.",
+        should_pass=["sac", "td3", "ddpg", "ppo_continuous"],
+        how_to="Train SAC on probe6 for 300 episodes; evaluation should exceed 0.9.",
+    ),
 ]
 
 
@@ -81,6 +95,9 @@ DIAGNOSTIC_OVERRIDES: Dict[str, Any] = {
     "target_update_freq": 20,
     "rollout_steps": 64,
     "minibatch_size": 32,
+    # continuous learners: start updating after a few dozen one-step episodes
+    "warmup_steps": 64,
+    "batch_size": 32,
 }
 
 

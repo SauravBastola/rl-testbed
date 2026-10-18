@@ -93,10 +93,32 @@ class ProbeEnv5(_ProbeBase):
         return self._out(1.0 if random.random() < p else 0.0, True)
 
 
+class ProbeEnv6(_ProbeBase):
+    """Continuous action in [-1, 1]; reward is highest at a = 0.5.
+
+    Reward 1 - |a - 0.5|, one step. The observation is a constant 1 rather than 0
+    so a network without biases still sees a non-zero input.
+    """
+
+    obs_dim, act_dim = 1, 1
+    continuous = True
+    act_low = [-1.0]
+    act_high = [1.0]
+
+    def reset(self):
+        self._state = 1
+        return {"obs": [1.0], "action_mask": [1]}
+
+    def step(self, action):
+        a = float(action[0] if hasattr(action, "__len__") else action)
+        return self._out(1.0 - abs(a - 0.5), True)
+
+
 PROBES = {
     "probe1": (ProbeEnv1, "One-state constant reward"),
     "probe2": (ProbeEnv2, "State-conditioned reward"),
     "probe3": (ProbeEnv3, "Delayed reward chain"),
     "probe4": (ProbeEnv4, "Stochastic transitions"),
     "probe5": (ProbeEnv5, "Two-armed bandit"),
+    "probe6": (ProbeEnv6, "Continuous target"),
 }

@@ -555,6 +555,8 @@ _PROBE_META = {
     "probe3": dict(label="Probe 3 · Delayed Reward"),
     "probe4": dict(label="Probe 4 · Stochastic Reward"),
     "probe5": dict(label="Probe 5 · Two-Armed Bandit"),
+    "probe6": dict(label="Probe 6 · Continuous Target", action_type="continuous", obs_type="vector",
+                   recommended=["sac", "td3", "ddpg", "ppo_continuous"]),
 }
 for _pname, (_cls, _desc) in PROBES.items():
     _register(
@@ -568,11 +570,13 @@ for _pname, (_cls, _desc) in PROBES.items():
             tags=["probe", "diagnostic"],
             max_steps=10,
             difficulty="easy",
-            obs_type="onehot",
+            obs_type=_PROBE_META[_pname].get("obs_type", "onehot"),
+            action_type=_PROBE_META[_pname].get("action_type", "discrete"),
             reward_desc="See benchmark description.",
             termination_desc="Single-step episode (or two steps for probe3).",
             typical_episode_length=2,
-            recommended_agents=["dqn", "reinforce_baseline", "ppo"],
+            recommended_agents=_PROBE_META[_pname].get(
+                "recommended", ["dqn", "reinforce_baseline", "ppo"]),
             limitations=["Not a meaningful training task - diagnostics only."],
             **dict(zip(("obs_dim", "act_dim"), _probe_dims(lambda c=_cls: BuiltinAdapter(c)))),
         ),

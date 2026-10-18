@@ -19,6 +19,7 @@ from .tabular_extra import (
     UCBAgent,
 )
 from .dqn_extra import C51Agent, PrioritizedDQNAgent
+from .ppo_continuous import GaussianPPOAgent
 
 AGENT_REGISTRY: Dict[str, type] = {
     "random": RandomAgent,
@@ -40,6 +41,7 @@ AGENT_REGISTRY: Dict[str, type] = {
     "reinforce_baseline": ReinforceBaselineAgent,
     "a2c": A2CAgent,
     "ppo": PPOAgent,
+    "ppo_continuous": GaussianPPOAgent,
     # continuous control (MuJoCo, Box action spaces)
     "ddpg": DDPGAgent,
     "td3": TD3Agent,
@@ -75,15 +77,6 @@ PLANNED_ALGORITHMS: List[Dict[str, Any]] = [
         status_reason="Requires conjugate-gradient and line-search machinery. PPO "
         "approximates the same trust region with a clipped objective and is available.",
         paper="Schulman et al., 2015. Trust Region Policy Optimization. ICML.",
-    ),
-    build_spec(
-        name="ppo_continuous", label="PPO (Gaussian policy)",
-        description="PPO with a diagonal Gaussian policy for continuous actions.",
-        category="actor-critic", policy_type="on-policy", status="planned",
-        action_types=["continuous"], obs_types=["vector"],
-        status_reason="The current PPO network only has a categorical head. Use SAC "
-        "or TD3 for continuous control until a Gaussian head is added.",
-        paper="Schulman et al., 2017. Proximal Policy Optimization Algorithms.",
     ),
     build_spec(
         name="self_play_ppo", label="Self-play PPO",

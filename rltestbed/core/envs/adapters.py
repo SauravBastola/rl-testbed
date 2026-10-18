@@ -367,7 +367,14 @@ class BuiltinAdapter:
         return self._env.act_dim
 
     def step(self, action):
-        out = self._env.step(int(action))
+        # Continuous builtin envs (e.g. probe6) take a float vector; the rest
+        # take an integer action index.
+        if getattr(self._env, "continuous", False):
+            action = np.clip(np.asarray(action, dtype=np.float32).flatten(),
+                             self._env.act_low, self._env.act_high)
+        else:
+            action = int(action)
+        out = self._env.step(action)
         if isinstance(out, dict):  # probe-style single-return
             return out, 0.0, True, False, {}
         if len(out) == 5:
