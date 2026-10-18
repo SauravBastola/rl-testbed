@@ -80,6 +80,14 @@ GLOSSARY: List[Dict[str, Any]] = [
       "Learning curves plot one point per episode. The distinction matters for learning: at "
       "termination the future is worth nothing, while at truncation the agent was simply cut off.",
       related=["return", "trajectory"]),
+    T("truncation", "Termination vs truncation", "Basics",
+      "Termination: the task really ended (the pole fell). Truncation: a time limit cut the episode short.",
+      "The difference matters for learning. After termination the future is worth nothing, so "
+      "the target is just the reward. After truncation the world would have continued, so the "
+      "target must still include the value of the next state. Treating Pendulum's 200-step limit "
+      "as termination teaches an agent that its final state is worthless.",
+      formula=r"$y = r + \gamma\,(1 - \text{terminated})\,V(s')$",
+      related=["episode", "bootstrapping"], envs=["pendulum", "cartpole"]),
     T("trajectory", "Trajectory", "Basics",
       "The sequence of states, actions and rewards produced by acting in an environment.",
       "Visualize plays one trajectory step by step. Monte Carlo methods learn from whole "
@@ -343,11 +351,27 @@ GLOSSARY: List[Dict[str, Any]] = [
     T("obs-normalization", "Observation normalisation", "Continuous control",
       "Rescaling each observation dimension by a running mean and standard deviation.",
       "MuJoCo observations mix positions near 1 with velocities near 10; without normalisation "
-      "the network sees mostly the large numbers.",
+      "the network sees mostly the large numbers. Off-policy agents must store raw observations "
+      "and normalise when sampling: normalising at storage time leaves early samples scaled by "
+      "statistics from a handful of steps. That bug kept the testbed's SAC from learning "
+      "Pendulum until v3.7.",
       formula=r"$\tilde{s} = \frac{s - \mu}{\sigma}$",
       related=["function-approximation"], algorithms=["sac", "ppo_continuous"], envs=["half_cheetah"]),
 
     # ---------------------------------------------------------------- Planning
+    T("crossq", "Batch normalisation in the critic (CrossQ)", "Continuous control",
+      "Replace target networks with batch-normalised critics that see current and next state-action pairs in one batch.",
+      "Target networks stabilise learning by lagging behind, which also slows it. CrossQ removes "
+      "them: because current and next pairs are normalised together, the critic's targets stay "
+      "consistent with its estimates. It matched or beat SAC's sample efficiency with less machinery.",
+      related=["target-network", "bootstrapping", "max-entropy"], algorithms=["crossq", "sac"],
+      envs=["pendulum"]),
+    T("simba", "Scaling networks (SimBa)", "Continuous control",
+      "An architecture of normalised residual blocks that keeps improving as it gets bigger, unlike plain MLPs in RL.",
+      "Bigger plain networks often learn worse in RL. SimBa's residual blocks with layer "
+      "normalisation (plus observation normalisation) bias the network toward simple functions, "
+      "so adding parameters helps. In the testbed it is the network option of SAC and TD3.",
+      related=["function-approximation", "obs-normalization"], algorithms=["sac", "td3"]),
     T("model", "Model (of the environment)", "World models and planning",
       "A learned or given predictor of the next state and reward for a state and action.",
       "With a model the agent can imagine experience instead of collecting it. Model errors are the "
@@ -448,6 +472,14 @@ GLOSSARY: List[Dict[str, Any]] = [
       "loss on preference pairs measured against the reference model.",
       formula=r"$\mathcal{L} = -\log\sigma\left(\beta\left[\log\frac{\pi_\theta(y_w \mid x)}{\pi_{\text{ref}}(y_w \mid x)} - \log\frac{\pi_\theta(y_l \mid x)}{\pi_{\text{ref}}(y_l \mid x)}\right]\right)$",
       related=["reference-model", "reward-model"], algorithms=["dpo"], envs=["lm_sort"]),
+    T("dapo-term", "DAPO", "Language models",
+      "GRPO with four refinements: clip-higher, dynamic sampling, a token-level loss, and no KL penalty.",
+      "Clip-higher lets the probability of unlikely-but-good tokens grow faster than PPO-style "
+      "clipping allows, to counter entropy collapse. Dynamic sampling replaces groups whose answers "
+      "all scored the same, since they carry no gradient. Both matter most in long training on hard "
+      "problems; at the Language lab's scale the effects are small.",
+      formula=r"$\min\left(\rho\hat A,\ \operatorname{clip}(\rho, 1-\epsilon_{\text{low}}, 1+\epsilon_{\text{high}})\hat A\right),\quad \epsilon_{\text{high}} > \epsilon_{\text{low}}$",
+      related=["grpo-term", "entropy", "ppo-clip"], algorithms=["grpo"], envs=["lm_addition"]),
     T("sharpening", "Sharpening", "Language models",
       "RL concentrating probability on answers the model could already produce, so one sample is right more often.",
       "In the Language lab the base model's greedy answer is nearly always right but a single "

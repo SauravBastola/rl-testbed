@@ -260,6 +260,23 @@ MODULES: List[Dict[str, Any]] = [
                           "and the entropy bonus.",
             },
             {
+                "id": "crossq",
+                "title": "Stability without target networks",
+                "summary": "SAC against CrossQ on Pendulum.",
+                "concepts": ["crossq", "target-network", "obs-normalization", "truncation"],
+                "experiment": {"runs": [
+                    R("sac", "pendulum", 40, seeds=(0, 1), name="SAC"),
+                    R("crossq", "pendulum", 40, seeds=(0, 1), name="CrossQ"),
+                ]},
+                "watch": "Both should reach about -150 within 40 episodes. Compare how early each "
+                         "starts improving, and the time per episode: CrossQ's critics are wider.",
+                "question": "A target network makes learning stable by lagging behind. How does CrossQ "
+                            "stay stable without one?",
+                "answer": "It batch-normalises its critics and passes current and next state-action "
+                          "pairs through them in one batch, so both halves of the TD target are "
+                          "normalised by the same statistics and stay consistent as the critic changes.",
+            },
+            {
                 "id": "mujoco",
                 "title": "A simulated body",
                 "summary": "SAC on MuJoCo's inverted pendulum. Needs the MuJoCo extra.",
@@ -368,6 +385,27 @@ MODULES: List[Dict[str, Any]] = [
                           "policy is not optimising (here, accuracy), samples you read yourself, or a "
                           "KL budget that flags runaway drift. Measuring only the optimised quantity "
                           "hides reward hacking.",
+            },
+            {
+                "id": "lm-dapo",
+                "title": "Refining GRPO: DAPO",
+                "summary": "GRPO against its DAPO variant on addition.",
+                "concepts": ["dapo-term", "entropy", "grpo-term"],
+                "experiment": {"runs": [
+                    R("grpo", "lm_addition", 60, seeds=(0, 1), name="GRPO"),
+                    R("grpo", "lm_addition", 60, seeds=(0, 1), name="DAPO",
+                      params={"clip_eps_high": 0.28, "dynamic_sampling": True,
+                              "token_level_loss": True, "kl_coef": 0.0}),
+                ]},
+                "watch": "DAPO tends to be ahead early (dynamic sampling means every update carries "
+                         "signal) and needs extra sampling rounds to do it. Compare the entropy charts: "
+                         "here they fall about equally.",
+                "question": "Clip-higher exists to stop entropy collapsing. Why is the effect hard to "
+                            "see in this lab?",
+                "answer": "Collapse becomes a problem over long training on hard problems, where the "
+                          "policy must keep exploring for many steps. These tasks are learned in a few "
+                          "dozen steps and the right answer is already likely, so there is little "
+                          "exploration left to protect. Results at small scale do not always transfer.",
             },
             {
                 "id": "lm-preferences",
