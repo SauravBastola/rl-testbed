@@ -15,6 +15,7 @@ CATEGORIES = [
     "Policy methods",
     "Continuous control",
     "Planning",
+    "Language models",
     "Doing experiments",
 ]
 
@@ -362,6 +363,59 @@ GLOSSARY: List[Dict[str, Any]] = [
       "Each real step is followed by n imagined updates. On the Dyna maze, 50 planning steps solve "
       "the task in a handful of real episodes.",
       related=["model", "planning", "sample-efficiency"], algorithms=["dyna_q"], envs=["dyna_maze"]),
+
+    # --------------------------------------------------------- Language models
+    T("pretraining", "Pretraining and supervised fine-tuning", "Language models",
+      "Training a language model to predict text (pretraining) and then to imitate good answers (SFT), before any RL.",
+      "RL for language models never starts from scratch: it refines a model that already "
+      "produces well-formed, partly correct answers. In the Language lab each task's base "
+      "model is pretrained on demonstrations that are wrong half the time, so it knows the "
+      "format but samples a correct answer only about half the time.",
+      formula=r"$\mathcal{L}_{\text{SFT}} = -\sum_t \log \pi_\theta(y_t \mid x, y_{<t})$",
+      related=["reference-model", "sharpening"], algorithms=["lm_sft"], envs=["lm_addition"]),
+    T("rlvr", "RL with verifiable rewards (RLVR)", "Language models",
+      "Fine-tuning a language model with rewards computed by a program that checks the answer, not by a learned judge.",
+      "Maths answers can be checked exactly, code can be run against tests. A verifier is hard "
+      "to fool, which makes RLVR far more resistant to reward hacking than a learned reward "
+      "model. It is how reasoning models such as DeepSeek-R1 were trained.",
+      related=["grpo-term", "reward-model", "sharpening"], algorithms=["grpo"], envs=["lm_addition", "lm_sort"]),
+    T("grpo-term", "Group-relative advantage (GRPO)", "Language models",
+      "Score each answer against the other answers sampled for the same prompt, instead of against a learned value.",
+      "GRPO samples G answers per prompt and uses each one's reward minus the group mean "
+      "(divided by the group's spread) as its advantage, shared by all of its tokens. It needs "
+      "no critic network. Groups where every answer scores the same carry no signal.",
+      formula=r"$\hat{A}_i = \frac{R_i - \operatorname{mean}(R_1,\ldots,R_G)}{\operatorname{std}(R_1,\ldots,R_G)}$",
+      related=["advantage", "ppo-clip", "rlvr"], algorithms=["grpo"]),
+    T("reference-model", "KL penalty to a reference model", "Language models",
+      "A penalty for drifting away from a frozen copy of the starting model, added to the RL objective.",
+      "It keeps the fine-tuned model close to what pretraining taught it, which preserves fluency "
+      "and limits reward hacking. Too small and the policy exploits flaws in the reward; too large "
+      "and it cannot improve. The testbed estimates it per token with the k3 estimator.",
+      formula=r"$\max_\theta\ \mathbb{E}\left[R(x,y)\right] - \beta\, D_{\mathrm{KL}}\left(\pi_\theta \,\|\, \pi_{\text{ref}}\right)$",
+      related=["kl", "reward-hacking", "pretraining"], algorithms=["grpo", "lm_reinforce"]),
+    T("reward-model", "Reward model", "Language models",
+      "A learned or hand-written scorer that stands in for what people actually want.",
+      "In RLHF a network trained on human preferences scores answers. Every reward model is an "
+      "imperfect proxy, and optimising a proxy hard enough finds where it is wrong.",
+      related=["reward-hacking", "rlvr", "dpo-term"], envs=["lm_addition_hackable"]),
+    T("reward-hacking", "Reward hacking", "Language models",
+      "The policy raises its reward by exploiting a flaw in the reward instead of doing the task better.",
+      "On the hackable addition task the reward also pays for length, so rambling earns more than "
+      "being right: without a strong enough KL penalty, reward climbs to its maximum while true "
+      "accuracy falls to zero. Exploits only appear once the policy can stumble on them.",
+      related=["reward-model", "reference-model"], envs=["lm_addition_hackable"]),
+    T("dpo-term", "Direct preference optimisation (DPO)", "Language models",
+      "Learn from pairs of answers where one is preferred, with no reward model and no RL sampling loop.",
+      "DPO solves the KL-regularised RL objective in closed form, turning it into a classification "
+      "loss on preference pairs measured against the reference model.",
+      formula=r"$\mathcal{L} = -\log\sigma\left(\beta\left[\log\frac{\pi_\theta(y_w \mid x)}{\pi_{\text{ref}}(y_w \mid x)} - \log\frac{\pi_\theta(y_l \mid x)}{\pi_{\text{ref}}(y_l \mid x)}\right]\right)$",
+      related=["reference-model", "reward-model"], algorithms=["dpo"], envs=["lm_sort"]),
+    T("sharpening", "Sharpening", "Language models",
+      "RL concentrating probability on answers the model could already produce, so one sample is right more often.",
+      "In the Language lab the base model's greedy answer is nearly always right but a single "
+      "sample is right about half the time; RL with verifiable rewards closes that gap. Watch "
+      "entropy fall as it happens. Whether RL also teaches genuinely new abilities is an open question.",
+      related=["rlvr", "entropy", "pretraining"], algorithms=["grpo"]),
 
     # ------------------------------------------------------- Doing experiments
     T("seed", "Seed", "Doing experiments",

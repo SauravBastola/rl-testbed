@@ -273,6 +273,69 @@ MODULES: List[Dict[str, Any]] = [
         ],
     },
     {
+        "id": "language-models",
+        "title": "RL for language models",
+        "summary": "The methods behind reasoning models, on a tiny transformer: verifiers, groups, KL and preferences.",
+        "steps": [
+            {
+                "id": "lm-verifier",
+                "title": "Sharpen a model with a verifier",
+                "summary": "GRPO and REINFORCE fine-tune a pretrained model on addition, scored right or wrong.",
+                "concepts": ["pretraining", "rlvr", "grpo-term", "sharpening", "reference-model"],
+                "experiment": {"runs": [
+                    R("grpo", "lm_addition", 60, seeds=(0, 1), name="GRPO"),
+                    R("lm_reinforce", "lm_addition", 60, seeds=(0, 1), name="REINFORCE"),
+                ]},
+                "watch": "Sampled accuracy rises from about 0.5 toward 0.9 while entropy falls and KL "
+                         "to the base model grows. Open the Samples tab of a run to read its answers.",
+                "question": "The base model's greedy answer is already right almost every time. What "
+                            "is RL improving?",
+                "answer": "The sampling distribution: a single sample at temperature 1 is right only "
+                          "about half the time. RL moves probability onto the correct answer, so samples "
+                          "agree with the greedy answer. This sharpening is most of what RL with "
+                          "verifiable rewards does.",
+            },
+            {
+                "id": "lm-hacking",
+                "title": "Reward hacking and the KL anchor",
+                "summary": "A flawed reward model pays for length. Compare no KL penalty with a strong one.",
+                "concepts": ["reward-model", "reward-hacking", "reference-model", "kl"],
+                "experiment": {"runs": [
+                    R("grpo", "lm_addition_hackable", 80, seeds=(0, 1), name="GRPO, no KL",
+                      params={"kl_coef": 0.0}),
+                    R("grpo", "lm_addition_hackable", 80, seeds=(0, 1), name="GRPO, KL 0.5",
+                      params={"kl_coef": 0.5}),
+                ]},
+                "watch": "Switch the comparison metric between reward and accuracy. Without KL, reward "
+                         "climbs to its maximum of 2.0 while accuracy falls to zero; with KL 0.5, "
+                         "reward rises less and accuracy rises.",
+                "question": "Reward went up and the model got worse. How would you notice this if you "
+                            "only had the reward?",
+                "answer": "You could not, from the reward alone. You need a second measurement the "
+                          "policy is not optimising (here, accuracy), samples you read yourself, or a "
+                          "KL budget that flags runaway drift. Measuring only the optimised quantity "
+                          "hides reward hacking.",
+            },
+            {
+                "id": "lm-preferences",
+                "title": "Preferences instead of rewards",
+                "summary": "DPO learns from which of two answers is better; GRPO from verified scores.",
+                "concepts": ["dpo-term", "reference-model", "pretraining"],
+                "experiment": {"runs": [
+                    R("dpo", "lm_sort", 60, seeds=(0, 1), name="DPO"),
+                    R("grpo", "lm_sort", 60, seeds=(0, 1), name="GRPO"),
+                ]},
+                "watch": "DPO improves less than GRPO here: its pairs come from the fixed base model, "
+                         "so they stop being informative as the policy moves. Try the online-pairs option.",
+                "question": "DPO never computes a reward during training. Where does the information "
+                            "come from?",
+                "answer": "From the preference labels on each pair: which answer is better. DPO turns "
+                          "the KL-regularised RL objective into a classification loss on those pairs, "
+                          "measured relative to the reference model.",
+            },
+        ],
+    },
+    {
         "id": "science",
         "title": "Doing RL science",
         "summary": "Reading results honestly: seeds, spread and what counts as evidence.",
