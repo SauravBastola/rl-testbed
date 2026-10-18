@@ -149,6 +149,26 @@ def export_experiment(
         typer.echo(text, nl=False)
 
 
+@app.command("rollout-worker", hidden=True)
+def rollout_worker(request: Path, output: Path):
+    """Internal: play a visualisation rollout on this process's main thread.
+
+    MuJoCo's default OpenGL backend on macOS (GLFW) must run on the main thread,
+    which web-server worker threads are not. The server writes the request to a
+    file, runs this command, and reads the result file.
+    """
+    from rltestbed import rollout
+
+    body = json.loads(request.read_text())
+    try:
+        result = rollout.run(body)
+    except rollout.RolloutError as exc:
+        result = {"error": exc.message, "status": exc.status}
+    except Exception as exc:  # report, never hang the server
+        result = {"error": f"{type(exc).__name__}: {exc}", "status": 500}
+    output.write_text(json.dumps(result))
+
+
 # ------------------------------------------------------------------ train --
 @app.command()
 def train(

@@ -125,6 +125,38 @@ def patch_mujoco_assets() -> int:
     return len(rewritten)
 
 
+def patch_mujoco_viewer_cleanup() -> bool:
+    """Make Gymnasium's OffScreenViewer.free() tolerate a failed __init__.
+
+    When an OpenGL context cannot be created, OffScreenViewer.__init__ raises
+    before setting ``opengl_context``; its ``__del__`` then prints
+    "AttributeError: 'OffScreenViewer' object has no attribute 'opengl_context'"
+    for every attempt. The real error is reported by the caller; this only
+    silences the misleading cleanup traceback.
+    """
+    import importlib.util
+
+    if importlib.util.find_spec("mujoco") is None:
+        return False
+    try:
+        from gymnasium.envs.mujoco import mujoco_rendering as mr
+    except Exception:
+        return False
+    viewer = getattr(mr, "OffScreenViewer", None)
+    if viewer is None or getattr(viewer.free, "_rltestbed_safe", False):
+        return False
+    original = viewer.free
+
+    def free(self):
+        if not hasattr(self, "opengl_context"):
+            return
+        original(self)
+
+    free._rltestbed_safe = True
+    viewer.free = free
+    return True
+
+
 def apply_compat_shims() -> dict:
     """Apply every compatibility shim exactly once. Returns a summary dict."""
     global _APPLIED
@@ -138,8 +170,14 @@ def apply_compat_shims() -> dict:
     except Exception:
         patched_assets = 0
 
+    try:
+        viewer_patched = patch_mujoco_viewer_cleanup()
+    except Exception:
+        viewer_patched = False
+
     _APPLIED = True
-    return {"applied": True, "mujoco_assets_patched": patched_assets}
+    return {"applied": True, "mujoco_assets_patched": patched_assets,
+            "mujoco_viewer_cleanup_patched": viewer_patched}
 
 
 def mujoco_available() -> bool:
@@ -176,6 +214,7 @@ __all__ = [
     "apply_compat_shims",
     "patch_numpy_aliases",
     "patch_mujoco_assets",
+    "patch_mujoco_viewer_cleanup",
     "mujoco_available",
     "mujoco_version",
     "cleanup_asset_cache",

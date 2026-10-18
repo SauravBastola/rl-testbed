@@ -80,6 +80,7 @@ class MultiArmedBanditEnv(_TabularBase):
 
     def step(self, action):
         a = int(action)
+        self._last_action = a
         reward = self._rng.gauss(self._q[a], self.reward_std)
         if self.nonstationary:
             # True values drift, so the optimal arm changes over time.
@@ -87,6 +88,11 @@ class MultiArmedBanditEnv(_TabularBase):
         self._t += 1
         terminated = self._t >= self.horizon
         return self._out([1.0], reward, terminated, False)
+
+    def view(self) -> dict:
+        """True arm means are hidden from the agent; shown for teaching."""
+        return {"kind": "bandit", "values": [float(q) for q in self._q],
+                "last": getattr(self, "_last_action", None)}
 
     def render(self, obs=None) -> str:
         bars = []
@@ -153,6 +159,10 @@ class RiverSwimEnv(_TabularBase):
         truncated = self._t >= self.max_steps
         return self._out(self._onehot(self.state, self.n_states), reward, False, truncated)
 
+    def view(self) -> dict:
+        return {"kind": "chain", "n": self.n_states, "position": self.state,
+                "left_reward": self.r_small, "right_reward": 1.0}
+
     def render(self, obs=None) -> str:
         cells = []
         for s in range(self.n_states):
@@ -217,6 +227,10 @@ class NChainEnv(_TabularBase):
         self._t += 1
         truncated = self._t >= self.max_steps
         return self._out(self._onehot(self.state, self.n), reward, False, truncated)
+
+    def view(self) -> dict:
+        return {"kind": "chain", "n": self.n, "position": self.state,
+                "left_reward": self.r_small, "right_reward": self.r_big}
 
     def render(self, obs=None) -> str:
         cells = []
@@ -299,6 +313,11 @@ class WindyGridworldEnv(_TabularBase):
         return self._out(self._onehot(self._idx(self.pos), self.obs_dim),
                          reward, terminated, truncated)
 
+    def view(self) -> dict:
+        return {"kind": "grid", "rows": self.rows, "cols": self.cols, "agent": list(self.pos),
+                "goal": list(self.GOAL), "start": list(self.START),
+                "wind": list(self.WIND[: self.cols])}
+
     def render(self, obs=None) -> str:
         rows = []
         for r in range(self.rows):
@@ -354,6 +373,11 @@ class DynaMazeEnv(_TabularBase):
         done = self.pos == self.GOAL
         return self._out(self._onehot(self._idx(self.pos), self.obs_dim),
                          1.0 if done else 0.0, done, self.t >= self.max_steps and not done)
+
+    def view(self) -> dict:
+        return {"kind": "grid", "rows": self.ROWS, "cols": self.COLS, "agent": list(self.pos),
+                "goal": list(self.GOAL), "start": list(self.START),
+                "walls": [list(w) for w in sorted(self.WALLS)]}
 
     def render(self, obs=None) -> str:
         rows = []

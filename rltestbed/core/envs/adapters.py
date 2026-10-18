@@ -118,11 +118,13 @@ def _extract_mask(obs):
 class GymAdapter:
     """Gymnasium adapter. Flattens observations; one-hot encodes Discrete spaces."""
 
-    def __init__(self, env_name: str):
+    def __init__(self, env_name: str, render_mode: str | None = None):
         import gymnasium as gym
         import gymnasium.spaces as spaces
 
-        self._env = gym.make(env_name)
+        # render_mode="rgb_array" lets the Visualize page draw frames from this
+        # very environment, so pixels and numbers always describe the same state.
+        self._env = gym.make(env_name, render_mode=render_mode) if render_mode else gym.make(env_name)
         obs_space = self._env.observation_space
         act_space = self._env.action_space
 
@@ -150,8 +152,8 @@ class GymAdapter:
             vec = np.zeros(self.obs_dim, dtype=np.float32)
         return vec.tolist()
 
-    def reset(self):
-        result = self._env.reset()
+    def reset(self, seed: int | None = None):
+        result = self._env.reset(seed=seed) if seed is not None else self._env.reset()
         obs = result[0] if isinstance(result, tuple) else result
         mask = _extract_mask(obs)
         if mask is not None:
@@ -257,14 +259,15 @@ class PettingZooSelfPlayAdapter:
         "texas_holdem": ("pettingzoo.classic", "texas_holdem_v4"),
     }
 
-    def __init__(self, game: str, learner_seat: int = 0, seed: int | None = None):
+    def __init__(self, game: str, learner_seat: int = 0, seed: int | None = None,
+                 render_mode: str | None = None):
         import importlib
 
         if game not in self._GAMES:
             raise ValueError(f"Unsupported pettingzoo game: {game}")
         package, module = self._GAMES[game]
         mod = importlib.import_module(f"{package}.{module}")
-        self._env = mod.env()
+        self._env = mod.env(render_mode=render_mode) if render_mode else mod.env()
         self._rng = np.random.default_rng(seed)
         self._env.reset(seed=seed)
         self._seat = self._env.possible_agents[learner_seat]
@@ -341,6 +344,9 @@ class PettingZooSelfPlayAdapter:
         if done:
             return {"obs": [0.0] * self.obs_dim, "action_mask": [1] * self.act_dim}
         return self._observation()
+
+    def render(self):
+        return self._env.render()
 
     def close(self):
         try:

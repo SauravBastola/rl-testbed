@@ -67,9 +67,8 @@ def make_render_env(name: str):
     if not env_id:
         return None
     try:
-        # Prefer a headless backend when the caller did not choose one. Some
-        # machines only provide glfw, so retry without forcing it below.
-        os.environ.setdefault("MUJOCO_GL", "egl")
+        # Never set MUJOCO_GL here: it is process-wide and EGL does not exist on
+        # macOS. rltestbed/rollout.py chooses a backend per rendering subprocess.
         import gymnasium as gym
 
         return gym.make(env_id, render_mode="rgb_array")
@@ -86,7 +85,8 @@ def make_render_env(name: str):
 def _png_base64(image) -> Optional[str]:
     try:
         buf = io.BytesIO()
-        image.save(buf, format="PNG", optimize=True)
+        # optimize=True costs ~45 ms per frame for little size gain
+        image.save(buf, format="PNG", compress_level=3)
         return base64.b64encode(buf.getvalue()).decode("ascii")
     except Exception:
         return None

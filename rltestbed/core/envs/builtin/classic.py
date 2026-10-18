@@ -55,6 +55,11 @@ class GridworldEnv:
     def close(self):
         pass
 
+    def view(self) -> dict:
+        """State as data for the web app's schematic (see rltestbed/rollout.py)."""
+        return {"kind": "grid", "rows": self.size, "cols": self.size,
+                "agent": list(self.pos), "goal": list(self.goal), "start": [0, 0]}
+
     def render(self, obs=None) -> str:
         rows = []
         for r in range(self.size):
@@ -112,6 +117,10 @@ class CatchGameEnv:
 
     def close(self):
         pass
+
+    def view(self) -> dict:
+        return {"kind": "catch", "rows": self.columns, "cols": self.columns,
+                "paddle": self.paddle, "ball": [self.item_row, self.item_col]}
 
     def render(self, obs=None) -> str:
         grid = [["·"] * self.columns for _ in range(self.columns)]
