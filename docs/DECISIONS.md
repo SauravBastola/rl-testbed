@@ -220,6 +220,28 @@ then posts to the running server, so its queue schedules the work and the web
 app shows it live. `rltestbed export` reads the local registry directly and needs
 no server.
 
+## v3.3: visualisation and themes
+
+**Pictures come from the acting environment.** v3 stepped a second "twin"
+environment for frames, reset with a different seed, so pictures could show a
+different episode than the numbers. Adapters now accept a render mode and the
+rollout renders the instance the agent acts in. Each step pairs the state the
+agent acted in with its observation; a final record shows the end state.
+
+**MuJoCo renders in a subprocess.** macOS's GLFW must run on a main thread and
+request handlers are not; a short-lived `rollout-worker` process sidesteps that
+on every platform and isolates native crashes. The backend is chosen per
+platform and never set in the server process.
+
+**Draw state, do not screenshot text.** Builtin worlds expose `view()` data and
+the web app draws them as SVG, in the current theme. Where there is genuinely
+nothing to draw (probes), the page says so and explains the observation.
+
+**Two modes, several themes.** Most people switch between dark and light, not
+between seven palettes, so the sidebar offers Night and Day and Settings picks
+each mode's theme. Theme CSS is scoped to `[data-theme]` so live previews work;
+every theme is checked for contrast.
+
 ## Component conventions
 
 The conventions asked for one component per file. Primitives are instead grouped by

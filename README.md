@@ -88,10 +88,14 @@ rltestbed export <run, sweep or seed-group id>[,...] -o my-experiment.yaml
   table, and a list of exactly which settings differ.
 - **Diagnostics:** "Run missing checks" queues every expected algorithm × probe
   pair; failed cells link to their runs.
-- **Visualize:** step through one episode frame by frame with a random policy or
-  a kept model. Environments without a renderer show the observation vector.
+- **Visualize:** step through one episode with a random policy or a kept model.
+  Frames come from the same environment the agent acts in (MuJoCo renders in a
+  short-lived subprocess so OpenGL works on macOS); builtin worlds without a
+  renderer are drawn from their state; every step lists the observation, labelled
+  where possible, and a note explains what is shown and why.
 - `⌘K` / `Ctrl K` or `/` opens the command palette; `⌘⇧L` switches lab.
-- Three themes: Midnight, Daylight and Graphite.
+- **Night / Day** in the sidebar; **Settings** chooses each mode's theme
+  (Night: Midnight, Graphite, Abyss, Obsidian. Day: Daylight, Paper, High contrast).
 
 ## Architecture
 
@@ -165,11 +169,11 @@ and `docs.math`.
 ```bash
 pip install -r requirements-dev.txt  # adds pytest
 make help                            # list common tasks; `make check` runs what CI runs
-python -m pytest tests -q            # 93 tests
+python -m pytest tests -q            # 109 tests
 cd web
 npm run dev                          # :5173, proxies /api and /ws to :8000
 npm run lint                         # ESLint, including a no-hex-colour rule
-npm run test                         # Vitest: every route plus helpers (42 tests)
+npm run test                         # Vitest: every route plus helpers (48 tests)
 npm run check:tokens                 # hex scan + WCAG contrast for all themes
 npm run format                       # Prettier
 npm run build                        # the server serves web/dist
@@ -192,6 +196,8 @@ RL Testbed is a single-user local tool with **no authentication**.
 
 - `rltestbed/compat.py` restores `np.float_` for Gymnasium 0.29.1's Acrobot under
   NumPy 2 and strips an attribute MuJoCo ≥ 3 rejects from bundled XML assets.
+- MuJoCo rendering picks an OpenGL backend per platform (GLFW on macOS and
+  desktops, EGL on headless Linux). Set `MUJOCO_GL` to override.
 - Pixel observations are flattened for the MLP networks; the compatibility check
   warns about this on every pixel environment.
 - In two-player games the learner plays one seat against a random legal opponent.
