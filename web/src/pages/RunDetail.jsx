@@ -80,6 +80,65 @@ function LogPanel({ runId, live }) {
   )
 }
 
+/**
+ * World models: the latest episode replayed open-loop in the learned model
+ * (real start state and real actions, never the real states again), against
+ * what actually happened. The gap is the model's compounding error.
+ */
+function ImaginationPanel({ runId, live }) {
+  const [dim, setDim] = useState(0)
+  const q = useQuery({
+    queryKey: ['imagination', runId],
+    queryFn: async () => {
+      const res = await fetch(api.artifactUrl(runId, 'imagination.json'))
+      return res.ok ? res.json() : null
+    },
+    refetchInterval: live ? 5000 : false,
+  })
+  if (q.isLoading) return <SkeletonRows rows={4} />
+  if (!q.data)
+    return (
+      <EmptyState
+        compact
+        icon={FileText}
+        title="No imagination yet"
+        description="Written after the first episodes, once the model has data."
+      />
+    )
+  const d = q.data
+  const label = (k) => d.labels?.[k] || `state ${k + 1}`
+  const series = [
+    { id: 'real', label: 'Real', color: 'chart-2', points: d.real.map((row, t) => ({ x: t + 1, y: row[dim] })) },
+    {
+      id: 'imagined',
+      label: 'Imagined by the model',
+      color: 'chart-3',
+      dashed: true,
+      points: d.imagined.map((row, t) => ({ x: t + 1, y: row[dim] })),
+    },
+  ]
+  return (
+    <div className="space-y-3">
+      <p className="text-body-s text-muted">
+        Episode {d.episode}: {d.note} Early steps match; the gap that opens later is error compounding through the
+        model.
+      </p>
+      <ChartFrame
+        title={label(dim)}
+        description="Real trajectory against the model's open-loop prediction."
+        series={series}
+        metric={String(dim)}
+        metrics={d.real[0].map((_, k) => ({ value: String(k), label: label(k) }))}
+        onMetricChange={(v) => setDim(Number(v))}
+        smoothing={0}
+        xLabel="Step"
+        height={240}
+        filename={`imagination-${runId}`}
+      />
+    </div>
+  )
+}
+
 /** Latest evaluation answers of a language run (written by SequenceTrainer). */
 function SamplesPanel({ runId, live }) {
   const q = useQuery({
@@ -451,6 +510,7 @@ export default function RunDetail() {
           onChange={setTab}
           tabs={[
             ...(env?.category === 'language' ? [{ value: 'samples', label: 'Samples' }] : []),
+            ...(['pets', 'dreamer_lite'].includes(r.agent) ? [{ value: 'imagination', label: 'Imagination' }] : []),
             { value: 'episodes', label: env?.category === 'language' ? 'Steps' : 'Episodes', count: hist.length },
             { value: 'config', label: 'Configuration' },
             { value: 'artifacts', label: 'Artifacts' },
@@ -557,6 +617,7 @@ export default function RunDetail() {
             </div>
           )}
           {tab === 'samples' && <SamplesPanel runId={r.id} live={live} />}
+          {tab === 'imagination' && <ImaginationPanel runId={r.id} live={live} />}
           {tab === 'artifacts' && (
             <div className="space-y-3">
               <a href={api.historyCsvUrl(r.id)} download className={buttonClass({ size: 'sm' })}>
