@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import { Eye, Pause, Play, SkipBack, SkipForward } from 'lucide-react'
+import { Eye, Info, Pause, Play, SkipBack, SkipForward } from 'lucide-react'
 import { useLab } from '../app/AppContext.jsx'
 import { api } from '../lib/api.js'
 import { useCatalogue, useModels } from '../lib/queries.js'
@@ -12,7 +12,9 @@ import { Field, Input, Select } from '../components/ui/Field.jsx'
 import { EmptyState, ErrorState, Notice, Skeleton } from '../components/ui/Feedback.jsx'
 import { KeyValue, PageHeader, Stat } from '../components/ui/Page.jsx'
 import { Segmented } from '../components/ui/Segmented.jsx'
+import { Badge } from '../components/ui/Badge.jsx'
 import { LineChart } from '../components/charts/LineChart.jsx'
+import { EnvSchematic } from '../components/domain/EnvSchematic.jsx'
 import { spacesSummary } from '../components/domain/CatalogCards.jsx'
 
 const SPEEDS = [
@@ -21,17 +23,68 @@ const SPEEDS = [
   { value: 12, label: '3×' },
 ]
 
+const SOURCE_BADGE = {
+  pixels: 'Rendered frames',
+  frames: "The agent's own input",
+  schematic: 'Drawing of the state',
+  observation: 'Observation only',
+}
+
 function fmtAction(a) {
+  if (a === null || a === undefined) return '—'
   if (Array.isArray(a)) return `[${a.map((x) => fmtNum(x, { digits: 2 })).join(', ')}]`
   return String(a)
 }
 
-function Player({ traj }) {
+/** The observation the agent received, labelled when the backend knows the labels. */
+function Observation({ obs, labels, obsType }) {
+  if (!Array.isArray(obs)) return null
+  if (obsType === 'onehot' && obs.length > 1) {
+    const idx = obs.findIndex((v) => v === 1)
+    return (
+      <p className="text-body-s text-muted">
+        One-hot vector: state <span className="num text-text">{idx >= 0 ? idx : '—'}</span> of{' '}
+        <span className="num text-text">{obs.length}</span>. The agent sees which state it is in, and nothing else.
+      </p>
+    )
+  }
+  const shown = obs.slice(0, 64)
+  if (labels) {
+    return (
+      <dl className="grid max-h-80 grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 overflow-y-auto text-caption">
+        {shown.map((v, k) => (
+          <div key={k} className="contents">
+            <dt className="truncate text-muted" title={labels[k]}>
+              {labels[k]}
+            </dt>
+            <dd className="num text-right text-text">{fmtNum(Number(v), { digits: 3 })}</dd>
+          </div>
+        ))}
+      </dl>
+    )
+  }
+  return (
+    <div className="grid max-h-80 grid-cols-4 gap-1 overflow-y-auto">
+      {shown.map((v, k) => (
+        <span
+          key={k}
+          className="num truncate rounded-sm bg-surface-2 px-1.5 py-1 text-right text-caption text-muted"
+          title={`obs[${k}] = ${v}`}
+        >
+          {fmtNum(Number(v), { digits: 2 })}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function Player({ data, traj }) {
   const [i, setI] = useState(0)
   const [playing, setPlaying] = useState(true)
   const [fps, setFps] = useState(4)
   const steps = traj.steps
   const step = steps[Math.min(i, steps.length - 1)]
+  const source = data.render.source
 
   useEffect(() => {
     setI(0)
@@ -47,34 +100,48 @@ function Player({ traj }) {
     () => [
       {
         id: 'cum',
-        label: 'Cumulative return',
+        label: 'Return so far',
         color: 'chart-1',
-        points: steps.map((s) => ({ x: s.step + 1, y: s.total_reward })),
+        points: steps.map((s) => ({ x: s.step, y: s.total_reward })),
       },
-      { id: 'r', label: 'Step reward', color: 'chart-3', points: steps.map((s) => ({ x: s.step + 1, y: s.reward })) },
+      {
+        id: 'r',
+        label: 'Step reward',
+        color: 'chart-3',
+        points: steps.filter((s) => !s.final).map((s) => ({ x: s.step, y: s.reward })),
+      },
     ],
     [steps],
   )
   if (!step) return null
-  const obs = Array.isArray(step.obs) ? step.obs : step.obs?.obs
 
   return (
-    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+    <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
       <Card>
-        <div
-          className="grid place-items-center overflow-hidden rounded-lg border border-border bg-bg-soft"
-          style={{ minHeight: 320 }}
-        >
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <Badge tone="accent">{SOURCE_BADGE[source]}</Badge>
+          {step.final && (
+            <Badge tone={step.terminated ? 'success' : 'neutral'}>
+              {step.terminated ? 'Episode over' : 'Step limit reached'}
+            </Badge>
+          )}
+        </div>
+        <div className="grid min-h-80 place-items-center overflow-hidden rounded-lg border border-border bg-bg-soft p-2">
           {step.frame ? (
             <img
-              src={`data:image/png;base64,${step.frame}`}
-              alt={`Frame ${step.step + 1}`}
-              className="max-h-[420px] w-auto max-w-full [image-rendering:pixelated]"
+              src={`data:${data.render.mime || 'image/png'};base64,${step.frame}`}
+              alt={`State at step ${step.step}`}
+              className="max-h-[440px] w-auto max-w-full [image-rendering:pixelated]"
             />
+          ) : step.view ? (
+            <div className="w-full max-w-2xl p-4">
+              <EnvSchematic view={step.view} />
+            </div>
           ) : (
-            <p className="p-8 text-center text-body-s text-muted">
-              This environment has no renderer; the observation is shown on the right.
-            </p>
+            <div className="max-w-md p-8 text-center">
+              <p className="text-body-s font-medium text-text">Nothing to draw</p>
+              <p className="mt-1 text-body-s text-muted">The observation on the right is the whole state.</p>
+            </div>
           )}
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-3">
@@ -106,12 +173,13 @@ function Player({ traj }) {
             aria-label="Step"
             className="min-w-32 flex-1 accent-[rgb(var(--accent))]"
           />
-          <span className="num text-caption text-muted">
-            {step.step + 1} / {steps.length}
+          <span className="num w-20 text-right text-caption text-muted">
+            {step.step} / {traj.length}
           </span>
           <Segmented size="sm" label="Playback speed" value={fps} onChange={setFps} options={SPEEDS} />
         </div>
       </Card>
+
       <div className="space-y-4">
         <Card pad="sm">
           <div className="grid grid-cols-2 gap-4">
@@ -122,43 +190,32 @@ function Player({ traj }) {
             className="mt-4"
             rows={[
               [
-                'Action',
+                'Action chosen',
                 <span key="a" className="num">
-                  {fmtAction(step.action)}
+                  {step.final ? 'none (final state)' : fmtAction(step.action)}
                 </span>,
               ],
               [
-                'Reward',
-                <span key="r" className="num">
-                  {fmtNum(step.reward)}
-                </span>,
+                'Reward for it',
+                step.final ? null : (
+                  <span key="r" className="num">
+                    {fmtNum(step.reward)}
+                  </span>
+                ),
               ],
-              ['Ended', step.terminated ? 'Terminated' : step.truncated ? 'Time limit' : null],
             ]}
           />
         </Card>
-        {Array.isArray(obs) && (
-          <Card pad="sm">
-            <CardHeader
-              title="Observation"
-              description={`${obs.length} values${obs.length > 24 ? ', first 24 shown' : ''}`}
-              className="mb-2"
-            />
-            <div className="grid grid-cols-4 gap-1">
-              {obs.slice(0, 24).map((v, k) => (
-                <span
-                  key={k}
-                  className="num truncate rounded-sm bg-surface-2 px-1.5 py-1 text-right text-caption text-muted"
-                  title={String(v)}
-                >
-                  {fmtNum(Number(v), { digits: 2 })}
-                </span>
-              ))}
-            </div>
-          </Card>
-        )}
         <Card pad="sm">
-          <LineChart series={rewardSeries} height={150} xLabel="Step" yLabel="Reward" />
+          <CardHeader
+            className="mb-2"
+            title="What the agent observes"
+            description={`${step.obs.length} number${step.obs.length === 1 ? '' : 's'}${step.obs.length > 64 ? ', first 64 shown' : ''}`}
+          />
+          <Observation obs={step.obs} labels={data.obs_labels} obsType={data.obs_type} />
+        </Card>
+        <Card pad="sm">
+          <LineChart series={rewardSeries} height={140} xLabel="Step" yLabel="Reward" />
         </Card>
       </div>
     </div>
@@ -182,6 +239,7 @@ export default function Visualize() {
   const env = envBy[envName || defaultEnv]
   const model = (models.data || []).find((m) => m.id === modelId)
   const envModels = (models.data || []).filter((m) => m.env === env?.name)
+  const slowRenderer = env?.category === 'mujoco'
 
   const roll = useMutation({ mutationFn: api.rollout })
   const go = () => {
@@ -198,16 +256,26 @@ export default function Visualize() {
   }
 
   if (error) return <ErrorState error={error} />
-  const trajs = roll.data?.trajectories || []
+  const data = roll.data
+  const trajs = data?.trajectories || []
+  const modelNote =
+    source === 'model'
+      ? !envModels.length
+        ? `No kept models for ${env?.label || 'this environment'} yet. Keep one from a finished run's page.`
+        : !modelId
+          ? 'Choose which kept model to watch.'
+          : null
+      : null
 
   return (
     <div className="space-y-6">
       <PageHeader
         title="Visualize"
-        description="Play one episode and step through it frame by frame, with a random policy or a kept model."
+        description="Play one episode and step through it, with a random policy or a kept model."
       />
       <Card>
-        <div className="grid items-end gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_minmax(0,1.2fr)_minmax(0,1.6fr)_7rem_7rem_auto]">
+        {/* Every control keeps a fixed footprint; notes go below the row, never inside it. */}
+        <div className="grid items-end gap-4 md:grid-cols-2 xl:grid-cols-[minmax(0,2fr)_auto_minmax(0,1.6fr)_7rem_7rem_auto]">
           <Field label="Environment">
             {(id) =>
               isLoading ? (
@@ -241,10 +309,7 @@ export default function Visualize() {
               ]}
             />
           </Field>
-          <Field
-            label="Model"
-            help={source === 'model' && !envModels.length ? 'No kept models for this environment yet.' : undefined}
-          >
+          <Field label="Model">
             {(id) => (
               <Select
                 id={id}
@@ -252,7 +317,9 @@ export default function Visualize() {
                 disabled={source !== 'model' || !envModels.length}
                 onChange={(e) => setModelId(e.target.value)}
               >
-                <option value="">{envModels.length ? 'Choose a model' : 'None available'}</option>
+                <option value="">
+                  {source !== 'model' ? '—' : envModels.length ? 'Choose a model' : 'None kept yet'}
+                </option>
                 {envModels.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.name}
@@ -296,24 +363,40 @@ export default function Visualize() {
             Play episode
           </Button>
         </div>
-        {env && (
-          <p className="mt-3 text-caption text-subtle">
-            {spacesSummary(env)} · up to {env.max_steps.toLocaleString()} steps{model ? ` · ${model.agent} model` : ''}
-          </p>
-        )}
+        <p className="mt-3 min-h-[18px] text-caption text-subtle">
+          {modelNote ? (
+            <span className="text-warning">{modelNote}</span>
+          ) : env ? (
+            <>
+              {spacesSummary(env)} · up to {env.max_steps.toLocaleString()} steps
+              {model ? ` · ${model.agent} model` : ''}
+            </>
+          ) : null}
+        </p>
       </Card>
 
       {roll.error && <ErrorState error={roll.error} onRetry={go} title="Could not play the episode" />}
-      {roll.isPending && <Skeleton className="h-96" />}
+      {roll.isPending && (
+        <div className="space-y-3">
+          {slowRenderer && (
+            <Notice tone="info">Starting the MuJoCo renderer in its own process; this takes a few seconds.</Notice>
+          )}
+          <Skeleton className="h-96" />
+        </div>
+      )}
       {!roll.isPending && !trajs.length && !roll.error && (
         <EmptyState
           icon={Eye}
           title="Choose an environment and press Play episode"
-          description="Rendered environments show real frames. Those without a renderer show the observation vector, action and reward for every step, so nothing is unviewable."
+          description="Environments with a renderer show real frames from the same instance the agent acts in. Worlds without one are drawn from their state, and every step lists exactly what the agent observes."
         />
       )}
       {!roll.isPending && trajs.length > 0 && (
         <>
+          <Notice tone={data.render.error ? 'warning' : 'info'} icon={Info} title="What you're seeing">
+            {data.render.explanation}
+            {data.agent === 'random' && ` The policy is random: a baseline for what no learning looks like.`}
+          </Notice>
           {trajs.length > 1 && (
             <Segmented
               value={episode}
@@ -321,12 +404,7 @@ export default function Visualize() {
               options={trajs.map((_, k) => ({ value: k, label: `Episode ${k + 1}` }))}
             />
           )}
-          {source === 'random' && (
-            <Notice tone="info">
-              This is a random policy: a baseline for what no learning looks like on {env?.label}.
-            </Notice>
-          )}
-          <Player traj={trajs[episode]} />
+          <Player data={data} traj={trajs[episode]} />
         </>
       )}
     </div>
