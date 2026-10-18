@@ -40,6 +40,13 @@ export const useAgentCode = (name, enabled = true) =>
   })
 export const useCapabilities = () => useQuery({ queryKey: keys.caps, queryFn: api.capabilities, ...STATIC })
 export const useLearningPath = () => useQuery({ queryKey: ['learning-path'], queryFn: api.learningPath, ...STATIC })
+/** Curriculum with live step status; polls while any step's runs are active. */
+export const useCurriculum = () =>
+  useQuery({
+    queryKey: ['curriculum'],
+    queryFn: api.curriculum,
+    refetchInterval: (q) => (JSON.stringify(q.state.data?.modules || '').includes('"state":"running"') ? 4000 : false),
+  })
 export const useGlossary = () => useQuery({ queryKey: ['glossary'], queryFn: api.glossary, ...STATIC })
 export const useSystem = (enabled = true) =>
   useQuery({ queryKey: keys.system, queryFn: api.system, enabled, refetchInterval: enabled ? 5000 : false })
@@ -177,6 +184,7 @@ export function useRunMutation(fn, opts = {}) {
       qc.invalidateQueries({ queryKey: keys.diagnostics })
       qc.invalidateQueries({ queryKey: ['sweeps'] })
       qc.invalidateQueries({ queryKey: ['sweep'] })
+      qc.invalidateQueries({ queryKey: ['curriculum'] })
       opts.onSuccess?.(data, vars, ctx)
     },
   })

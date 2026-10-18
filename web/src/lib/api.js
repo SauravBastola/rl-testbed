@@ -64,6 +64,7 @@ export const api = {
   compatibility: (agent, env) => request(`/api/compatibility${q({ agent, env })}`),
   // content
   learningPath: () => request('/api/learning-path'),
+  curriculum: () => request('/api/curriculum'),
   glossary: () => request('/api/glossary'),
   system: () => request('/api/system'),
   diagnostics: () => request('/api/diagnostics'),
