@@ -10,7 +10,7 @@ import { Button, IconButton } from '../components/ui/Button.jsx'
 import { Card, CardHeader } from '../components/ui/Card.jsx'
 import { Field, Input, Select } from '../components/ui/Field.jsx'
 import { EmptyState, ErrorState, Notice, Skeleton } from '../components/ui/Feedback.jsx'
-import { KeyValue, PageHeader, Stat } from '../components/ui/Page.jsx'
+import { PageHeader, Stat } from '../components/ui/Page.jsx'
 import { Segmented } from '../components/ui/Segmented.jsx'
 import { Badge } from '../components/ui/Badge.jsx'
 import { LineChart } from '../components/charts/LineChart.jsx'
@@ -28,12 +28,6 @@ const SOURCE_BADGE = {
   frames: "The agent's own input",
   schematic: 'Drawing of the state',
   observation: 'Observation only',
-}
-
-function fmtAction(a) {
-  if (a === null || a === undefined) return '—'
-  if (Array.isArray(a)) return `[${a.map((x) => fmtNum(x, { digits: 2 })).join(', ')}]`
-  return String(a)
 }
 
 /** The observation the agent received, labelled when the backend knows the labels. */
@@ -75,6 +69,54 @@ function Observation({ obs, labels, obsType }) {
         </span>
       ))}
     </div>
+  )
+}
+
+/**
+ * The action at this step, with a fixed footprint so playback never reflows:
+ * a name for discrete actions; one row per dimension (bar + number) for
+ * continuous ones.
+ */
+function ActionPanel({ step, data }) {
+  if (step.final) return <p className="h-6 text-body-s text-muted">None: this is the final state.</p>
+  const labels = data.action_labels
+  if (data.action_type !== 'continuous') {
+    const name = labels?.[step.action]
+    return (
+      <p className="flex h-6 min-w-0 items-baseline gap-2 text-body-s">
+        <span className="truncate font-medium text-text">{name || `Action ${step.action}`}</span>
+        {name && <span className="num shrink-0 text-caption text-subtle">#{step.action}</span>}
+      </p>
+    )
+  }
+  const values = Array.isArray(step.action) ? step.action : [step.action]
+  const low = data.action_bounds?.low || values.map(() => -1)
+  const high = data.action_bounds?.high || values.map(() => 1)
+  return (
+    <ul className="space-y-1.5">
+      {values.map((v, k) => {
+        const lo = low[k] ?? -1
+        const hi = high[k] ?? 1
+        const zero = Math.min(1, Math.max(0, (0 - lo) / (hi - lo || 1)))
+        const pos = Math.min(1, Math.max(0, (v - lo) / (hi - lo || 1)))
+        const left = Math.min(zero, pos)
+        return (
+          <li key={k} className="grid h-5 grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)_3.5rem] items-center gap-2">
+            <span className="truncate text-caption text-muted" title={labels?.[k]}>
+              {labels?.[k] || `dim ${k + 1}`}
+            </span>
+            <span className="relative h-1.5 rounded-full bg-surface-3">
+              <span className="absolute inset-y-[-2px] w-px bg-border-strong" style={{ left: `${zero * 100}%` }} />
+              <span
+                className="absolute inset-y-0 rounded-full bg-accent"
+                style={{ left: `${left * 100}%`, width: `${Math.abs(pos - zero) * 100}%` }}
+              />
+            </span>
+            <span className="num text-right text-caption text-text">{fmtNum(Number(v), { digits: 2 })}</span>
+          </li>
+        )
+      })}
+    </ul>
   )
 }
 
@@ -186,25 +228,17 @@ function Player({ data, traj }) {
             <Stat label="Return so far" value={fmtNum(step.total_reward)} />
             <Stat label="Episode return" value={fmtNum(traj.total_reward)} />
           </div>
-          <KeyValue
-            className="mt-4"
-            rows={[
-              [
-                'Action chosen',
-                <span key="a" className="num">
-                  {step.final ? 'none (final state)' : fmtAction(step.action)}
-                </span>,
-              ],
-              [
-                'Reward for it',
-                step.final ? null : (
-                  <span key="r" className="num">
-                    {fmtNum(step.reward)}
-                  </span>
-                ),
-              ],
-            ]}
-          />
+          <div className="mt-4 border-t border-border pt-3">
+            <div className="mb-2 flex items-baseline justify-between">
+              <span className="label">Action chosen</span>
+              {!step.final && (
+                <span className="text-caption text-subtle">
+                  reward <span className="num text-text">{fmtNum(step.reward)}</span>
+                </span>
+              )}
+            </div>
+            <ActionPanel step={step} data={data} />
+          </div>
         </Card>
         <Card pad="sm">
           <CardHeader

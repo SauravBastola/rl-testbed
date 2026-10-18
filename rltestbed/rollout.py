@@ -134,7 +134,7 @@ def run(body: Dict[str, Any]) -> Dict[str, Any]:
     """Play episodes and return trajectories. Raises RolloutError."""
     from rltestbed.core.agents import create_agent, list_agents
     from rltestbed.core.envs import REGISTRY
-    from rltestbed.core.envs.observations import explain, labels_for
+    from rltestbed.core.envs.observations import action_labels, explain, labels_for
     from rltestbed.core.envs.renderers import encode_array
     from rltestbed.registry import get_model
 
@@ -227,6 +227,11 @@ def run(body: Dict[str, Any]) -> Dict[str, Any]:
         trajectories.append({"episode": ep, "steps": steps, "total_reward": total,
                              "length": s})
     labels = labels_for(env_name, env, env.obs_dim)
+    actions = action_labels(env_name, env, env.act_dim)
+    bounds = None
+    if spec.action_type == "continuous" and getattr(env, "act_low", None) is not None:
+        bounds = {"low": np.asarray(env.act_low, dtype=float).tolist(),
+                  "high": np.asarray(env.act_high, dtype=float).tolist()}
     try:
         env.close()
     except Exception:
@@ -237,6 +242,7 @@ def run(body: Dict[str, Any]) -> Dict[str, Any]:
                    "mime": "image/jpeg" if photographic and source == "pixels" else "image/png",
                    "explanation": explain(source, spec, labels, render_error)},
         "obs_labels": labels, "obs_type": spec.obs_type,
+        "action_type": spec.action_type, "action_labels": actions, "action_bounds": bounds,
         "trajectories": trajectories,
     }
 

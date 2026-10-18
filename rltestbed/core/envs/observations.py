@@ -39,6 +39,59 @@ DESCRIPTIONS: Dict[str, str] = {
 }
 
 
+# What each discrete action does, checked against each environment's step().
+ACTIONS: Dict[str, List[str]] = {
+    "cartpole": ["push left", "push right"],
+    "mountain_car": ["accelerate left", "coast", "accelerate right"],
+    "acrobot": ["torque −1", "torque 0", "torque +1"],
+    "lunar_lander": ["do nothing", "fire left engine", "fire main engine", "fire right engine"],
+    "frozen_lake": ["left", "down", "right", "up"],
+    "cliff_walking": ["up", "right", "down", "left"],
+    "taxi": ["south", "north", "east", "west", "pick up", "drop off"],
+    "blackjack": ["stick", "hit"],
+    "gridworld": ["up", "down", "left", "right"],
+    "windy_gridworld": ["up", "down", "left", "right"],
+    "dyna_maze": ["up", "down", "left", "right"],
+    "catch": ["stay", "left", "right"],
+    "river_swim": ["swim left (with the current)", "swim right (against it)"],
+    "n_chain": ["advance along the chain", "bail out (small reward, back to start)"],
+    # PettingZoo numbers the board column by column.
+    "tictactoe": [f"row {i % 3 + 1}, column {i // 3 + 1}" for i in range(9)],
+    "connect_four": [f"drop in column {c + 1}" for c in range(7)],
+    "pendulum": ["torque"],
+    "mountain_car_continuous": ["force"],
+    "bipedal_walker": ["hip 1 torque", "knee 1 torque", "hip 2 torque", "knee 2 torque"],
+}
+MINATAR_ACTIONS = ["no-op", "left", "up", "right", "down", "fire"]
+
+
+def action_labels(name: str, env: Any, act_dim: int) -> Optional[List[str]]:
+    """A name for each discrete action, or each dimension of a continuous one."""
+    if name in ACTIONS and len(ACTIONS[name]) == act_dim:
+        return ACTIONS[name]
+    if name.endswith("bandit"):
+        return [f"pull arm {i + 1}" for i in range(act_dim)]
+    if name.startswith("minatar") and act_dim == len(MINATAR_ACTIONS):
+        return MINATAR_ACTIONS
+    inner = getattr(env, "_env", None)
+    model = getattr(getattr(inner, "unwrapped", None), "model", None)
+    if model is not None and getattr(model, "nu", 0) == act_dim:
+        try:
+            import mujoco
+
+            names = []
+            for i in range(model.nu):
+                name_i = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_ACTUATOR, i)
+                if not name_i:  # unnamed actuator: use the joint it drives
+                    name_i = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_JOINT,
+                                               int(model.actuator_trnid[i, 0])) or f"actuator {i}"
+                names.append(f"{name_i} torque")
+            return names
+        except Exception:
+            return None
+    return None
+
+
 def mujoco_labels(env: Any, obs_dim: int) -> Optional[List[str]]:
     """Labels for MuJoCo observations of the form qpos[k:] + qvel.
 
