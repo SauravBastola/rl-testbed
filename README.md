@@ -94,6 +94,11 @@ rltestbed export <run, sweep or seed-group id>[,...] -o my-experiment.yaml
   renderer are drawn from their state; every step lists the observation, labelled
   where possible, and a note explains what is shown and why.
 - `⌘K` / `Ctrl K` or `/` opens the command palette; `⌘⇧L` switches lab.
+- **Learning path:** 7 modules, 15 experiments, from a random baseline to reading
+  results across seeds. Each step teaches named concepts, runs in one click, asks
+  a question, and marks itself done from your runs.
+- **Glossary:** 67 terms by topic, with explanations, formulas, related terms and
+  links to where each idea appears.
 - **Night / Day** in the sidebar; **Settings** chooses each mode's theme
   (Night: Midnight, Graphite, Abyss, Obsidian. Day: Daylight, Paper, High contrast).
 
@@ -147,6 +152,7 @@ All v2 endpoints and response shapes still work. New:
 | `POST /api/experiments/validate`, `POST /api/experiments/launch` | Check or launch an experiment file (`{"text": "..."}`) |
 | `GET /api/experiments/export?run_ids=&sweep_id=` | Experiment file that recreates runs and/or a sweep |
 | `GET /api/experiments/examples` | One starter file per lab curriculum |
+| `GET /api/curriculum` | Learning-path modules with each step's live status and experiment file |
 | `GET /api/runs/{id}/history.csv`, `GET /api/compare/aggregate?...&format=csv` | CSV exports |
 
 Environments gain `lab`, `available`, `unavailable_reason`, `requires`,
@@ -169,11 +175,11 @@ and `docs.math`.
 ```bash
 pip install -r requirements-dev.txt  # adds pytest
 make help                            # list common tasks; `make check` runs what CI runs
-python -m pytest tests -q            # 109 tests
+python -m pytest tests -q            # 119 tests
 cd web
 npm run dev                          # :5173, proxies /api and /ws to :8000
 npm run lint                         # ESLint, including a no-hex-colour rule
-npm run test                         # Vitest: every route plus helpers (48 tests)
+npm run test                         # Vitest: every route plus helpers (49 tests)
 npm run check:tokens                 # hex scan + WCAG contrast for all themes
 npm run format                       # Prettier
 npm run build                        # the server serves web/dist

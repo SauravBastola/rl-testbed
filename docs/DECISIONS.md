@@ -242,6 +242,22 @@ between seven palettes, so the sidebar offers Night and Day and Settings picks
 each mode's theme. Theme CSS is scoped to `[data-theme]` so live previews work;
 every theme is checked for contrast.
 
+## v3.4: learning path and glossary
+
+**Steps are experiments.** Every learning-path step is an experiment file, so
+it launches through the same validated path as everything else, can be opened
+and edited in the Experiments page, and is checked by a test that runs the real
+parser. Most steps compare two methods over several seeds, because the lessons
+of RL (on- vs off-policy, variance, sensitivity) only show up in comparisons.
+
+**Completion comes from runs, not checkboxes.** A step is done when enough
+seeds of each of its experiments have completed (and, for some, a greedy
+evaluation clears a bar). Clicking "done" would teach nothing.
+
+**One source for teaching text.** Glossary entries and steps live in Python
+(`glossary.py`, `curriculum.py`); a test fails if any concept, related term,
+algorithm or environment reference stops resolving.
+
 ## Component conventions
 
 The conventions asked for one component per file. Primitives are instead grouped by
