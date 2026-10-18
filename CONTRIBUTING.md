@@ -16,8 +16,8 @@ git switch main
 git pull                       # if you use a remote
 git switch -c <topic>          # e.g. v3.1-sweeps
 git am --3way path/to/series.patch
-make check                     # or the commands listed in the README
-git switch main && git merge --ff-only <topic>
+# merge only if every check passes: `&&` stops at the first failure
+make check && git switch main && git merge --ff-only <topic> && git branch -d <topic>
 ```
 
 If `git am` stops on a conflict: fix the files, `git add` them, then

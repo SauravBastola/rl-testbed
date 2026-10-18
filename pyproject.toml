@@ -20,3 +20,16 @@ include = ["rltestbed*"]
 line-length = 88
 target-version = ['py311']
 extend-exclude = 'legacy/'
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+# Deprecations raised inside third-party libraries are not actionable here;
+# warnings from rltestbed's own code still show.
+filterwarnings = [
+    "ignore::DeprecationWarning:matplotlib.*",
+    "ignore::DeprecationWarning:pyparsing.*",
+    "ignore:.*pyparsing.*:DeprecationWarning",
+    "ignore:Using `httpx` with `starlette.testclient`.*",
+    "ignore::DeprecationWarning:starlette.*",
+    "ignore::DeprecationWarning:pygame.*",
+]
