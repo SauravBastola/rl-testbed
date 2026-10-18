@@ -58,6 +58,11 @@ anything starts), and launch. From the terminal:
 ```bash
 rltestbed train dqn cartpole --episodes 300
 rltestbed train sac half_cheetah --episodes 200 --keep
+
+# Experiment files (the server must be running for `run`)
+rltestbed run experiments/cartpole-baselines.yaml --dry-run
+rltestbed run experiments/cartpole-baselines.yaml
+rltestbed export <run, sweep or seed-group id>[,...] -o my-experiment.yaml
 ```
 
 ## Using the app
@@ -74,6 +79,10 @@ rltestbed train sac half_cheetah --episodes 200 --keep
   random search) and a number of seeds; every configuration runs through the
   queue. Results rank configurations by mean ± std, show each parameter's effect,
   and open the best configuration in New run with one click.
+- **Experiments:** describe runs and sweeps in a YAML file, check it (every
+  problem is reported with its location), and launch it. Any run, comparison or
+  sweep exports back to such a file, so experiments can be committed, reviewed
+  and rerun. See `experiments/cartpole-baselines.yaml`.
 - **Compare:** seeds of the same configuration pool into a mean with a ±1σ band,
   with a summary (final, best eval, episodes to solve, wall clock), a per-seed
   table, and a list of exactly which settings differ.
@@ -111,7 +120,7 @@ TanStack Query, Framer Motion, a custom SVG chart (`components/charts`), KaTeX
 for algorithm theory, self-hosted fonts. See [docs/DECISIONS.md](docs/DECISIONS.md)
 for the reasoning behind each choice.
 
-## API additions in v3 and v3.1
+## API additions since v3
 
 All v2 endpoints and response shapes still work. New:
 
@@ -131,6 +140,10 @@ All v2 endpoints and response shapes still work. New:
 | `POST /api/sweeps`, `GET /api/sweeps?lab=` | Launch a sweep; list sweeps with progress |
 | `GET /api/sweeps/{id}?rank_by=final\|best_eval` | Ranked configurations and per-parameter effects |
 | `POST /api/sweeps/{id}/stop`, `DELETE /api/sweeps/{id}` | Stop or delete a sweep and its runs |
+| `POST /api/experiments/validate`, `POST /api/experiments/launch` | Check or launch an experiment file (`{"text": "..."}`) |
+| `GET /api/experiments/export?run_ids=&sweep_id=` | Experiment file that recreates runs and/or a sweep |
+| `GET /api/experiments/examples` | One starter file per lab curriculum |
+| `GET /api/runs/{id}/history.csv`, `GET /api/compare/aggregate?...&format=csv` | CSV exports |
 
 Environments gain `lab`, `available`, `unavailable_reason`, `requires`,
 `sparse_reward` and `reward_threshold`. Algorithms gain `status_reason`, `paper`
@@ -152,11 +165,11 @@ and `docs.math`.
 ```bash
 pip install -r requirements-dev.txt  # adds pytest
 make help                            # list common tasks; `make check` runs what CI runs
-python -m pytest tests -q            # 62 tests
+python -m pytest tests -q            # 93 tests
 cd web
 npm run dev                          # :5173, proxies /api and /ws to :8000
 npm run lint                         # ESLint, including a no-hex-colour rule
-npm run test                         # Vitest: every route plus helpers (38 tests)
+npm run test                         # Vitest: every route plus helpers (42 tests)
 npm run check:tokens                 # hex scan + WCAG contrast for all themes
 npm run format                       # Prettier
 npm run build                        # the server serves web/dist

@@ -19,10 +19,10 @@ in the same commit that finishes an item.
 
 ## v3.2: richer experiments
 
-- [ ] **Experiment files.** `rltestbed run experiment.yaml` describing runs or a
+- [x] **Experiment files.** `rltestbed run experiment.yaml` describing runs or a
   sweep; the UI can export any run or sweep as such a file. Done when an exported
   file reproduces the same runs on another machine.
-- [ ] **Run export.** CSV/JSON download of a run's history and of a comparison.
+- [x] **Run export.** CSV/JSON download of a run's history and of a comparison.
 - [ ] **Sweep early stopping.** Successive halving: stop the worst half of
   configurations at fixed checkpoints. Done when a sweep uses measurably less
   compute than the full grid and still finds the same best configuration on CartPole.

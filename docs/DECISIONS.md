@@ -196,6 +196,30 @@ seed count next to the winner and warns when it is one.
 **No early stopping yet.** Successive halving would save compute but needs runs to
 be resumable mid-way; it is on the roadmap behind "resume from checkpoint".
 
+## v3.2: experiment files
+
+**YAML, strict.** YAML because it is what people already write configs in and it
+diffs well in git. Every entry is validated by a pydantic model with
+`extra="forbid"`, so `episods: 300` is an error rather than a silently ignored key,
+and errors carry a location (`runs[0].episods`, or a line and column for syntax
+errors).
+
+**One launch path.** `rltestbed/launch.py` is the only code that validates and
+creates runs and sweeps. The API endpoints, experiment files and the CLI all call
+it, so a file can never do something the New run page would refuse.
+
+**All or nothing.** A file is validated completely before the first run is
+created. Half-launched experiments are worse than none: they look like results.
+
+**Exports are explicit.** Exported runs list every hyperparameter, not only those
+that differ from the defaults, so a committed file keeps its meaning if a default
+changes later. Runs that differ only by seed collapse into one entry.
+
+**The CLI talks to the server for launches.** `rltestbed run` validates locally,
+then posts to the running server, so its queue schedules the work and the web
+app shows it live. `rltestbed export` reads the local registry directly and needs
+no server.
+
 ## Component conventions
 
 The conventions asked for one component per file. Primitives are instead grouped by
