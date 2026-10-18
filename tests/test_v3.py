@@ -202,7 +202,9 @@ def test_run_patch_and_artifact_download(client):
     (cfg.RUNS_DIR / rid).mkdir(parents=True, exist_ok=True)
     (cfg.RUNS_DIR / rid / "worker.log").write_text("hello")
     assert client.get(f"/api/runs/{rid}/artifacts/worker.log").text == "hello"
-    assert client.get(f"/api/runs/{rid}/artifacts/../../etc/passwd").status_code == 404
+    # Percent-encoded so the HTTP client cannot normalise it away before sending
+    # (a plain "../" never reached the handler; see tests/test_security.py).
+    assert client.get(f"/api/runs/{rid}/artifacts/..%2F..%2F..%2Fetc%2Fpasswd").status_code == 404
 
 
 def test_diagnostics_matrix_and_system(client):

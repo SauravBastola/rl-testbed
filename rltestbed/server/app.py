@@ -9,7 +9,7 @@ _os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 _os.environ.setdefault("SDL_AUDIODRIVER", "dummy")
 _os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import FastAPI, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
@@ -91,14 +91,60 @@ def _history(run_id: str) -> list:
     return out
 
 
-def create_app() -> FastAPI:
-    app = FastAPI(title="RL Testbed", version="3.0.0")
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["*"],
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
+LOOPBACK_HOSTS = ["localhost", "127.0.0.1", "[::1]", "::1"]
+
+
+def _env_list(name: str) -> Optional[List[str]]:
+    raw = _os.environ.get(name, "").strip()
+    return [x.strip() for x in raw.split(",") if x.strip()] if raw else None
+
+
+def create_app(web_dist: Optional[Path] = None,
+               allowed_hosts: Optional[List[str]] = None,
+               cors_origins: Optional[List[str]] = None) -> FastAPI:
+    """Build the API + web app.
+
+    Security model: a local, single-user laboratory with no authentication.
+    - The web app is same-origin and the Vite dev server proxies /api, so no
+      cross-origin access is granted by default. (v3.0 allowed every origin,
+      which let any website open in the browser call this API and read the
+      responses.) Opt in with ``cors_origins`` or RLTESTBED_CORS_ORIGINS.
+    - Only requests whose Host header is a loopback name are served, which
+      blocks DNS-rebinding attacks. ``rltestbed serve --host 0.0.0.0`` widens
+      this deliberately; RLTESTBED_ALLOWED_HOSTS overrides it.
+    """
+    from contextlib import asynccontextmanager
+
+    @asynccontextmanager
+    async def lifespan(app_: FastAPI):
+        async def pump_forever():
+            while True:
+                try:
+                    await asyncio.to_thread(JOB_MANAGER.pump)
+                except Exception:  # pragma: no cover - keep the loop alive
+                    pass
+                await asyncio.sleep(1.0)
+
+        task = asyncio.create_task(pump_forever())
+        try:
+            yield
+        finally:
+            task.cancel()
+
+    app = FastAPI(title="RL Testbed", version="3.1.0", lifespan=lifespan)
+    hosts = allowed_hosts or _env_list("RLTESTBED_ALLOWED_HOSTS") or LOOPBACK_HOSTS + ["testserver"]
+    if "*" not in hosts:
+        from starlette.middleware.trustedhost import TrustedHostMiddleware
+
+        app.add_middleware(TrustedHostMiddleware, allowed_hosts=hosts)
+    origins = cors_origins or _env_list("RLTESTBED_CORS_ORIGINS")
+    if origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=origins,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
 
     JOB_MANAGER.reconcile()
 
@@ -1437,34 +1483,21 @@ def create_app() -> FastAPI:
                 pass
 
     # ------------------------------------------------------------- static --
-    dist = Path(WEB_DIST_DIR)
+    dist = Path(web_dist or WEB_DIST_DIR).resolve()
     if (dist / "index.html").exists():
         app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
 
         @app.get("/{full_path:path}")
         def spa(full_path: str):
-            file = dist / full_path
-            if file.is_file():
+            # Serve real files only from inside dist. `full_path` arrives
+            # percent-decoded, so "..%2F" becomes "../": resolve and confine it.
+            # (v3.0 joined it unchecked and would serve any readable file.)
+            file = (dist / full_path).resolve()
+            if file.is_file() and dist in file.parents:
                 return FileResponse(file)
+            if full_path.startswith("api/"):
+                raise HTTPException(404, "unknown API endpoint")
             return FileResponse(dist / "index.html")
-
-    @app.on_event("startup")
-    async def start_queue_pump():
-        async def pump_forever():
-            while True:
-                try:
-                    await asyncio.to_thread(JOB_MANAGER.pump)
-                except Exception:  # pragma: no cover - keep the loop alive
-                    pass
-                await asyncio.sleep(1.0)
-
-        app.state.pump = asyncio.create_task(pump_forever())
-
-    @app.on_event("shutdown")
-    async def shutdown():
-        task = getattr(app.state, "pump", None)
-        if task:
-            task.cancel()
 
     return app
 

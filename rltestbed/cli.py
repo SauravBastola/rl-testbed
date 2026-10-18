@@ -42,7 +42,22 @@ def serve(
     import uvicorn
     from rltestbed.server.app import create_app
 
-    app_instance = create_app()
+    loopback = host in ("127.0.0.1", "localhost", "::1")
+    if loopback:
+        app_instance = create_app()
+    else:
+        # Binding beyond loopback is a deliberate choice to share on a network,
+        # so accept any Host header unless RLTESTBED_ALLOWED_HOSTS narrows it.
+        import os
+
+        hosts = [h.strip() for h in os.environ.get("RLTESTBED_ALLOWED_HOSTS", "*").split(",")]
+        app_instance = create_app(allowed_hosts=hosts)
+        typer.secho(
+            f"Warning: serving on {host}, reachable from other machines. "
+            "RL Testbed has no authentication: anyone who can reach this port can "
+            "start, stop and delete runs.",
+            fg=typer.colors.YELLOW,
+        )
     typer.echo(f"RL Testbed serving on http://{host}:{port}")
     uvicorn.run(app_instance, host=host, port=port, log_level="info")
 

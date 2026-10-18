@@ -162,6 +162,19 @@ npm run format                       # Prettier
 npm run build                        # the server serves web/dist
 ```
 
+## Security
+
+RL Testbed is a single-user local tool with **no authentication**.
+
+- By default it listens on `127.0.0.1` and only answers requests addressed to
+  `localhost` / `127.0.0.1`, which blocks DNS-rebinding attacks from websites.
+- No cross-origin access is granted, so other websites open in your browser
+  cannot call the API. The Vite dev server proxies `/api`, so development needs
+  no CORS. To allow a specific origin: `RLTESTBED_CORS_ORIGINS=http://host:port`.
+- `rltestbed serve --host 0.0.0.0` makes it reachable from your network and
+  prints a warning: anyone who can reach the port can start, stop and delete
+  runs. Restrict accepted host names with `RLTESTBED_ALLOWED_HOSTS=a.local,10.0.0.5`.
+
 ## Notes
 
 - `rltestbed/compat.py` restores `np.float_` for Gymnasium 0.29.1's Acrobot under

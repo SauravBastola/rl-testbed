@@ -153,6 +153,20 @@ an install hint instead of disappearing.
 
 The audit was also wrong that runs had no tags: `tags_json` already existed.
 
+12. (v3.1.1) The frontend catch-all route served `dist / full_path` without
+    checking that the result stayed inside `dist`. A percent-encoded request such
+    as `/..%2F..%2Fetc%2Fpasswd` returned any file the user could read. Combined
+    with CORS allowing every origin, any website open in the browser could read
+    local files while the server ran. Both predate v3; found because a test meant
+    to check traversal never reached its handler (HTTP clients normalise `../`).
+
+## v3.1.1: local security model
+
+No authentication, so the defences are about who can reach the server:
+loopback binding, a Host-header allowlist (DNS rebinding), no cross-origin
+access unless configured, and file serving confined to its directory. Startup
+and shutdown hooks moved from the deprecated `on_event` to a lifespan handler.
+
 ## v3.1: continuous diagnostics and Gaussian PPO
 
 Every probe was discrete, so SAC, TD3 and DDPG never appeared in the Diagnostics
