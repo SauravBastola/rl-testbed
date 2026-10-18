@@ -258,6 +258,25 @@ evaluation clears a bar). Clicking "done" would teach nothing.
 (`glossary.py`, `curriculum.py`); a test fails if any concept, related term,
 algorithm or environment reference stops resolving.
 
+## v3.5: RL for language models
+
+**Real algorithms, toy scale.** A ~100k-parameter character transformer trained
+from scratch on CPU instead of downloading a small LLM: no network, no new
+dependencies, seconds per run, and every mechanism (sampled completions,
+verifiers, group-relative advantages, KL to a frozen reference, preference
+pairs) is the same as at full scale.
+
+**Pretrain to convergence on noisy data.** The base model must be partly right
+and identical on every machine. Stopping pretraining mid-way gave 4-31% base
+accuracy depending on thread scheduling; converging on demonstrations that are
+wrong half the time gives about 50% sampled accuracy everywhere, with greedy
+answers nearly always right. RL then sharpens the sampling distribution, which
+is what RL with verifiable rewards mostly does in practice.
+
+**Same files, different loop.** `SequenceTrainer` writes the history and
+progress files `Trainer` does, so nothing else in the app needed to know about
+language models. `core/runner.create_trainer` is the only branch.
+
 ## Component conventions
 
 The conventions asked for one component per file. Primitives are instead grouped by

@@ -15,12 +15,13 @@ The catalogue is organised into **labs**, one per shape of learning problem:
 | Continuous Control | Torque control of simulated bodies | 11 MuJoCo tasks, BipedalWalker |
 | Perception | Learning to act from pixels | 5 MinAtar games |
 | Multi-Agent | Two-player games against an opponent | Tic-Tac-Toe, Connect Four, Texas Hold'em |
+| Language models | RL fine-tuning of a tiny transformer with verifiable rewards | Addition, reversal, sorting, and a hackable reward |
 
 Plus a global **Diagnostics** page: six probe environments with known answers
 (five discrete, one continuous), shown as a pass/fail matrix across every algorithm.
 
-**Catalogue:** 45 environments (39 for training, 6 diagnostic probes) and 30
-algorithms (22 trainable, 8 planned, each with the reason it is not trainable
+**Catalogue:** 49 environments (43 for training, 6 diagnostic probes) and 34
+algorithms (26 trainable, 8 planned, each with the reason it is not trainable
 yet). Environments whose optional dependency is missing are listed as
 unavailable with an install command, rather than hidden.
 
@@ -94,10 +95,13 @@ rltestbed export <run, sweep or seed-group id>[,...] -o my-experiment.yaml
   renderer are drawn from their state; every step lists the observation, labelled
   where possible, and a note explains what is shown and why.
 - `⌘K` / `Ctrl K` or `/` opens the command palette; `⌘⇧L` switches lab.
-- **Learning path:** 7 modules, 15 experiments, from a random baseline to reading
+- **Language models:** GRPO, REINFORCE, DPO and supervised fine-tuning on a tiny
+  pretrained transformer (no downloads, seconds per run). Visualize shows sampled
+  answers shaded by token probability; a hackable task demonstrates reward hacking.
+- **Learning path:** 8 modules, 18 experiments, from a random baseline to reading
   results across seeds. Each step teaches named concepts, runs in one click, asks
   a question, and marks itself done from your runs.
-- **Glossary:** 67 terms by topic, with explanations, formulas, related terms and
+- **Glossary:** 75 terms by topic, with explanations, formulas, related terms and
   links to where each idea appears.
 - **Night / Day** in the sidebar; **Settings** chooses each mode's theme
   (Night: Midnight, Graphite, Abyss, Obsidian. Day: Daylight, Paper, High contrast).
@@ -175,11 +179,11 @@ and `docs.math`.
 ```bash
 pip install -r requirements-dev.txt  # adds pytest
 make help                            # list common tasks; `make check` runs what CI runs
-python -m pytest tests -q            # 119 tests
+python -m pytest tests -q            # 128 tests
 cd web
 npm run dev                          # :5173, proxies /api and /ws to :8000
 npm run lint                         # ESLint, including a no-hex-colour rule
-npm run test                         # Vitest: every route plus helpers (49 tests)
+npm run test                         # Vitest: every route plus helpers (50 tests)
 npm run check:tokens                 # hex scan + WCAG contrast for all themes
 npm run format                       # Prettier
 npm run build                        # the server serves web/dist
@@ -212,5 +216,6 @@ RL Testbed is a single-user local tool with **no authentication**.
   failed and interrupted runs can be restarted.
 - Contributing and the patch workflow: [CONTRIBUTING.md](CONTRIBUTING.md).
   What is planned next: [docs/ROADMAP.md](docs/ROADMAP.md).
+- Where RL is heading and what to add next, with sources: [docs/RESEARCH.md](docs/RESEARCH.md).
 - Further reference: [docs/ALGORITHMS.md](docs/ALGORITHMS.md),
   [docs/ENVIRONMENTS.md](docs/ENVIRONMENTS.md), [docs/MUJOCO.md](docs/MUJOCO.md).

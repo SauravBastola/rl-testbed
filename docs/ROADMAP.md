@@ -29,6 +29,16 @@ in the same commit that finishes an item.
 - [ ] **Resume from checkpoint.** Restart continues from `checkpoint.pth` instead of
   episode 0 (agent state, optimiser, replay buffer optional).
 
+## v3.5: modern methods at small scale
+
+- [x] **RL for language models.** GRPO, REINFORCE, DPO and SFT on a tiny
+  transformer with verifiable rewards; reward hacking and the KL anchor.
+- [ ] **World models.** Planning with a learned dynamics ensemble (PETS-style)
+  and learning in imagination (Dreamer-style) on classic control, with a view of
+  imagined vs real rollouts and a learning-path module. See docs/RESEARCH.md.
+- [ ] **DAPO preset** for GRPO: clip-higher and skipping zero-signal groups.
+- [ ] **CrossQ and a SimBa-style network option** for SAC, TD3 and PPO.
+
 ## v3.3: breadth of methods
 
 - [ ] **Self-play.** The game adapter accepts a frozen copy of the learner as the
