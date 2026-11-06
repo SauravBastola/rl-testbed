@@ -5,7 +5,7 @@ Pick an environment and an algorithm, launch a run, watch it learn live, compare
 methods across seeds, and read the theory behind every one of them, in one web
 app with a matching command line.
 
-![Classic Control lab](docs/screenshots/lab_classic--midnight.png)
+![Classic Control lab overview: run counts, best evaluation, the latest learning curve and the lab's curriculum](docs/screenshots/lab-overview.png)
 
 Every algorithm is implemented in this repository, readably, from tabular
 Q-learning to SAC, PETS world models and GRPO for language models, so you can
@@ -26,6 +26,63 @@ study the code as well as run it.
 - **Reproduce.** Describe runs and sweeps in YAML experiment files, commit them
   with your code, and rerun them anywhere.
 
+## A tour
+
+All screenshots come from a fresh install after running
+[`experiments/cartpole-baselines.yaml`](experiments/cartpole-baselines.yaml), a
+Cliff Walking comparison and the diagnostic probes.
+
+### Compare across seeds
+
+![Compare page: Q-learning and SARSA on Cliff Walking, three seeds each, mean with a ±1σ band](docs/screenshots/compare-seeds.png)
+
+Seeds of one configuration pool into a mean with a ±1σ band, and the summary table
+reports final return, best evaluation and episodes-to-solve. Here is the textbook
+Cliff Walking result reproduced over three seeds: Q-learning learns the optimal
+path along the cliff edge (greedy evaluation −13) but its exploratory training
+return is worse (−30), because ε-greedy steps fall off the cliff; SARSA learns the
+safer path (−17) and trains better (−22).
+
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/run-detail.png" alt="Run detail: DQN on CartPole learning curve with greedy evaluations dashed">
+      <p><b>Run detail.</b> Training return per episode with greedy evaluations
+      dashed, the solve threshold, and every metric the algorithm reports.</p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/sweep.png" alt="Sweep page: DQN learning-rate grid search with the top three configurations">
+      <p><b>Sweeps.</b> Grid or random search over hyperparameters, each
+      configuration run on several seeds; the best one is one click from a new run.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/visualize.png" alt="Visualize page: CartPole frame with the agent's four labelled observations">
+      <p><b>Visualize.</b> Step through an episode frame by frame. The panel lists
+      exactly the numbers the agent observes, labelled, and the action it chose.</p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/algorithm-page.png" alt="SAC algorithm page: the idea, the precise update rule and how it fails">
+      <p><b>Algorithm pages.</b> The idea in plain words, the exact update rule,
+      how it fails, its hyperparameters and where it fits among the others.</p>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/diagnostics.png" alt="Diagnostics grid: every algorithm against six probe environments, all 54 expected checks passing">
+      <p><b>Diagnostics.</b> Six probe environments with known answers. Each
+      algorithm is checked on the probes it should pass; a failure means a bug, not
+      a hard problem.</p>
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/screenshots/learning-path.png" alt="Learning path: progress bar and the first step, Measure the floor">
+      <p><b>Learning path.</b> 23 steps, each with concepts, a ready-made experiment,
+      what to look for and a check-your-understanding question.</p>
+    </td>
+  </tr>
+</table>
+
 ## Labs
 
 | Lab | What it studies | Examples |
@@ -41,6 +98,44 @@ Algorithms include Q-learning, SARSA, Dyna-Q, UCB, Thompson sampling, DQN (doubl
 dueling, prioritised, C51), REINFORCE, A2C, PPO, DDPG, TD3, SAC, CrossQ, PETS,
 Dreamer-lite, GRPO (with Dr. GRPO and DAPO variants) and DPO. A diagnostics page
 runs six probe environments with known answers against every algorithm.
+
+## How it works
+
+Three front doors, one launch path. The web app, experiment files and the CLI all
+create runs through `launch.py`; every run trains in its own subprocess, so a crash
+never takes the server down.
+
+```mermaid
+flowchart LR
+    UI["Web app<br/>React + TanStack Query"] -->|REST| API["server/app.py<br/>FastAPI"]
+    CLI["rltestbed CLI"] --> API
+    YAML["Experiment files<br/>YAML"] --> CLI
+    API --> L["launch.py<br/>validate · expand seeds and sweeps"]
+    L --> C{"capabilities<br/>check_compat"}
+    C -->|compatible| Q["jobs.py<br/>run queue"]
+    L --> R[("registry.py<br/>SQLite")]
+    Q --> W1["worker subprocess<br/>trainer.py"]
+    Q --> W2["worker subprocess<br/>lm/trainer.py"]
+    W1 --> F["runs/&lt;id&gt;/<br/>progress.json · history.jsonl"]
+    W2 --> F
+    F -->|live curves, Compare,<br/>sweeps, learning path| API
+```
+
+Each worker steps one agent through one environment. Agents and environments
+declare their observation and action types; compatibility is decided in one
+place, never special-cased.
+
+```mermaid
+flowchart LR
+    E["Environment<br/>reset() · step()"] -->|"obs, reward,<br/>terminated, truncated"| T["Trainer loop"]
+    T -->|obs| A["Agent<br/>get_action()"]
+    A -->|action| E
+    T -->|transition| U["Agent<br/>update()"]
+    U -->|get_metrics()| T
+    T -->|every N episodes| EV["Greedy evaluation"]
+    T --> H["history.jsonl"]
+    EV --> H
+```
 
 ## Quick start
 
